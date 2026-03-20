@@ -1,0 +1,48 @@
+name: Daily Stock Data Update (CZSC Format)
+
+on:
+  schedule:
+    # 每天美东时间晚上 17:00 运行 (相当于 UTC 21:00) 确保美股已收盘
+    - cron: '0 21 * * 1-5'
+  workflow_dispatch:
+    # 允许手动触发
+    inputs:
+      manual_trigger:
+        description: 'Manual Trigger'
+        required: false
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Fetcher Script
+        env:
+          TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}  # 如果没有填，会回退到 yfinance
+        run: |
+          python us_data_fetcher.py
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/
+          git commit -m "Auto-update daily OHLCV data" || echo "No changes to commit"
+          git push

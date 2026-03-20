@@ -1,0 +1,4 @@
+{
+  "stocks": ["AAPL", "TSLA", "MSFT", "NVDA"],
+  "etfs": ["SPY", "QQQ"]
+}
