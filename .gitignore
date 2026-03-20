@@ -3,4 +3,4 @@ __pycache__/
 *$py.class
 *.env
 .env
-data/
+
