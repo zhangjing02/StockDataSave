@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CZSC 美股量化分析平台</title>
+  <meta name="description" content="基于缠中说禅理论的美股高精度K线分析平台，实时读取GitHub数据仓，展示5分钟K线与新闻早报。" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">📈 CZSC · 美股量化</div>
+      <div class="market-status" id="marketStatus">
+        <span class="dot"></span>
+        <span id="marketStatusText">市场状态加载中...</span>
+      </div>
+    </div>
+    <nav class="header-right">
+      <button class="nav-btn active" onclick="switchTab('chart')">K 线图</button>
+      <button class="nav-btn" onclick="switchTab('news')">新闻早报</button>
+    </nav>
+  </header>
+
+  <!-- Main Layout -->
+  <main class="main-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-title">自选股</div>
+      <div class="stock-list" id="stockList">
+        <!-- dynamically populated -->
+      </div>
+
+      <div class="sidebar-title" style="margin-top: 24px;">ETF 指数</div>
+      <div class="stock-list" id="etfList">
+        <!-- dynamically populated -->
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-title">时间周期</div>
+      <div class="timeframe-group">
+        <button class="tf-btn active" onclick="switchTimeframe('5m')">5分钟</button>
+        <button class="tf-btn" onclick="switchTimeframe('1d')">日线</button>
+      </div>
+    </aside>
+
+    <!-- Content Area -->
+    <div class="content-area">
+      <!-- Chart Tab -->
+      <div id="tabChart" class="tab-panel active">
+        <div class="chart-header">
+          <div>
+            <div class="symbol-name" id="symbolName">AAPL</div>
+            <div class="symbol-info" id="symbolInfo">Apple Inc. · 5分钟</div>
+          </div>
+          <div class="price-display">
+            <span class="price-value" id="priceValue">—</span>
+            <span class="price-change" id="priceChange"></span>
+          </div>
+        </div>
+        <div id="chartContainer"></div>
+        <div class="chart-footer">
+          <div class="stat-item">
+            <span class="stat-label">开盘</span>
+            <span class="stat-value" id="statOpen">—</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">最高</span>
+            <span class="stat-value" id="statHigh">—</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">最低</span>
+            <span class="stat-value" id="statLow">—</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">成交量</span>
+            <span class="stat-value" id="statVol">—</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">数据条数</span>
+            <span class="stat-value" id="statCount">—</span>
+          </div>
+        </div>
+        <div class="loading-overlay" id="loadingOverlay">
+          <div class="spinner"></div>
+          <div class="loading-text">正在加载行情数据...</div>
+        </div>
+        <div class="error-box" id="errorBox" style="display:none;"></div>
+      </div>
+
+      <!-- News Tab -->
+      <div id="tabNews" class="tab-panel">
+        <div class="news-header">
+          <h2>📰 美股新闻早报</h2>
+          <div class="news-date-selector">
+            <label>选择日期：</label>
+            <input type="date" id="newsDateInput" onchange="loadNews(this.value)" />
+          </div>
+        </div>
+        <div id="newsContent" class="news-content">
+          <div class="news-loading">正在加载新闻...</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
