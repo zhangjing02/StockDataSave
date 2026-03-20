@@ -2,3 +2,4 @@ pandas
 yfinance
 requests
 czsc
+deep-translator
