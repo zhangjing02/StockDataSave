@@ -1,3 +1,4 @@
-requests
 pandas
 yfinance
+requests
+czsc

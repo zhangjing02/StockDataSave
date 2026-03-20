@@ -1,57 +1,111 @@
-import os
-import glob
 import pandas as pd
-from datetime import datetime
+import os
+import json
+import glob
+from czsc import CzscIter, RawBar
 
-try:
-    from czsc import CZSC, RawBar, Freq
-except ImportError:
-    print("ERROR: Please install czsc (pip install czsc)")
-    exit(1)
+# Configuration
+DATA_DIR = "data"
+SIGNALS_DIR = "signals"
+os.makedirs(SIGNALS_DIR, exist_ok=True)
 
-def load_data(symbol):
-    files = glob.glob(f"data/{symbol}/*_5m.csv")
-    if not files:
-        return None
-    
-    dfs = [pd.read_csv(f) for f in files]
-    df = pd.concat(dfs).drop_duplicates(subset=['dt']).sort_values('dt')
-    return df
-
-def run_analysis(symbol):
-    df = load_data(symbol)
-    if df is None or df.empty:
-        print(f"No data for {symbol}")
+def analyze_ticker(csv_path):
+    filename = os.path.basename(csv_path)
+    # Expected format: AAPL_1d.csv
+    try:
+        parts = filename.replace(".csv", "").split("_")
+        if len(parts) < 2: return
+        symbol = parts[0]
+        interval = parts[1]
+    except:
         return
 
-    bars = []
-    for _, row in df.iterrows():
-        b = RawBar(
-            symbol=row['symbol'],
-            dt=pd.to_datetime(row['dt']),
-            freq=Freq.F5,
-            open=row['open'],
-            close=row['close'],
-            high=row['high'],
-            low=row['low'],
-            vol=row['vol'],
-            amount=row['amount']
-        )
-        bars.append(b)
+    print(f"Analyzing {symbol} ({interval})...")
+    
+    try:
+        # Load CSV
+        df = pd.read_csv(csv_path)
+        if df.empty or len(df) < 50: return # Need some data to analyze
 
-    c = CZSC(bars)
+        # Find columns
+        cols = df.columns
+        date_col = next((c for c in cols if "Date" in c or "dt" in c or c == "Unnamed: 0"), None)
+        
+        # Prepare bars for CZSC
+        bars = []
+        for _, row in df.iterrows():
+            try:
+                dt_str = str(row[date_col])
+                # Convert to datetime object if possible, then back to ISO or timestamp
+                dt = pd.to_datetime(dt_str)
+                
+                bar = RawBar(
+                    symbol=symbol,
+                    dt=dt,
+                    open=float(row['Open']),
+                    close=float(row['Close']),
+                    high=float(row['High']),
+                    low=float(row['Low']),
+                    vol=float(row['Volume']),
+                    amount=0 # Optional
+                )
+                bars.append(bar)
+            except:
+                continue
+
+        if not bars: return
+
+        # Perform Analysis
+        ci = CzscIter(bars)
+        
+        # Extract Fractals (分型)
+        fx_list = []
+        for fx in ci.fx_list:
+            fx_list.append({
+                "dt": fx.dt.strftime('%Y-%m-%d %H:%M:%S'),
+                "mark": str(fx.mark), # d/g (bottom/top)
+                "high": fx.high,
+                "low": fx.low
+            })
+
+        # Extract Segments (笔)
+        bi_list = []
+        for bi in ci.bi_list:
+            bi_list.append({
+                "start_dt": bi.start_dt.strftime('%Y-%m-%d %H:%M:%S'),
+                "end_dt": bi.end_dt.strftime('%Y-%m-%d %H:%M:%S'),
+                "direction": str(bi.direction), # d/g
+                "high": bi.high,
+                "low": bi.low
+            })
+
+        # Save Results
+        num_fx = len(fx_list)
+        num_bi = len(bi_list)
+        
+        result = {
+            "symbol": symbol,
+            "interval": interval,
+            "last_update": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "fractals": fx_list[max(0, num_fx - 150):], 
+            "bi": bi_list[max(0, num_bi - 80):]
+        }
+
+        output_file = os.path.join(SIGNALS_DIR, f"{symbol}_{interval}_signals.json")
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2)
+            
+    except Exception as e:
+        print(f"  Error analyzing {filename}: {e}")
+
+from datetime import datetime
+
+def main():
+    csv_files = glob.glob(os.path.join(DATA_DIR, "*.csv"))
+    print(f"Found {len(csv_files)} data files to analyze.")
     
-    print(f"\n========== {symbol} 5m CZSC Analysis ==========")
-    print(f"Data points: {len(c.bars_raw)}")
-    print(f"Detected Bi (笔) count: {len(c.bi_list)}")
-    
-    if c.bi_list:
-        last_bi = c.bi_list[-1]
-        print(f"Latest Bi Direction: {last_bi.direction}")
-        print(f"Latest Bi bounds: High {last_bi.high} | Low {last_bi.low}")
-    
-    print("================================================\n")
+    for f in csv_files:
+        analyze_ticker(f)
 
 if __name__ == "__main__":
-    for sym in ["AAPL", "TSLA", "QQQ"]:
-        run_analysis(sym)
+    main()

@@ -34,22 +34,21 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytz peewee multitasking websockets urllib3 tzdata typing-extensions soupsieve six pycparser protobuf platformdirs numpy idna frozendict charset-normalizer certifi requests python-dateutil cffi beautifulsoup4 pandas curl_cffi yfinance deep-translator
+          pip install -r requirements.txt
 
-      - name: Run Fetcher Script
-        env:
-          TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}  # 如果没有填，会回退到 yfinance
+      - name: Fetch stock data
         run: python us_data_fetcher.py
 
-      - name: Run News Fetcher
-        env:
-          TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
+      - name: Run CZSC Analysis
+        run: python run_czsc_analysis.py
+
+      - name: Fetch news
         run: python news_fetcher.py
-        
-      - name: Commit and push changes
+
+      - name: Commit files
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add -f data/
-          git commit -m "Auto-update daily data and news" || echo "No changes to commit"
+          git add data/ signals/ news/
+          git commit -m "Auto-update daily data, news and signals" || echo "No changes to commit"
           git push
