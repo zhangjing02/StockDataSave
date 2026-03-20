@@ -2,8 +2,11 @@ import pandas as pd
 import os
 import json
 import glob
-from czsc.analyze import CzscIter
-from czsc.objects import RawBar
+try:
+    from czsc import CZSC as CzscIter, RawBar
+except ImportError:
+    from czsc.analyze import CZSC as CzscIter
+    from czsc.objects import RawBar
 
 # Configuration
 DATA_DIR = "data"
