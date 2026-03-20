@@ -158,7 +158,7 @@ function initChart() {
   volumeSeries = chart.addHistogramSeries({
     priceFormat: { type:'volume' },
     priceScaleId: 'vol',
-    scaleMargins: { top:0.85, bottom:0 }
+    scaleMargins: { top:0.7, bottom:0 }
   });
 
   window.addEventListener('resize', () => {
@@ -322,36 +322,27 @@ async function loadNews(dateStr) {
 }
 
 function renderNewsMarkdown(md, dateLbl) {
-  let html = '';
-  let current = '';
-  let items  = [];
+  if (!md) return `<div class="news-empty">📭 ${dateLbl} 暂无新闻内容</div>`;
+  
+  // Simple markdown-to-html converter
+  let html = md
+    // Headers
+    .replace(/^# (.*$)/gm, '<h1 class="news-title-main">$1</h1>')
+    .replace(/^## (.*$)/gm, '<h2 class="news-section-title">$1</h2>')
+    .replace(/^### (.*$)/gm, '<h3 class="news-item-title">$1</h3>')
+    // Blockquotes
+    .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>')
+    // Bold
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // Links
+    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="news-link">$1</a>')
+    // Horizontal rule
+    .replace(/^---$/gm, '<hr class="news-divider">')
+    // Newlines to breaks (careful with existing tags)
+    .split('\n').join('<br>');
 
-  const flush = () => {
-    if (!current && !items.length) return;
-    html += `<div class="news-section">`;
-    if (current) html += `<div class="news-section-title">${current}</div>`;
-    items.forEach(it => {
-      html += `<div class="news-item"><span class="news-bullet">›</span><span class="news-text">${it}</span></div>`;
-    });
-    html += `</div>`;
-    items = [];
-    current = '';
-  };
-
-  md.split('\n').forEach(line => {
-    line = line.trim();
-    if (!line) return;
-    if (line.startsWith('# ') || line.startsWith('## ') || line.startsWith('### ')) {
-      flush();
-      current = line.replace(/^#+\s*/, '');
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-      items.push(line.slice(2));
-    } else if (line.match(/^\d+\.\s/)) {
-      items.push(line.replace(/^\d+\.\s/, ''));
-    }
-  });
-  flush();
-  return html || `<div class="news-empty">📭 ${dateLbl} 暂无新闻内容</div>`;
+  // Wrap in sections if simplified
+  return `<div class="news-rendered-body">${html}</div>`;
 }
 
 // ── Helpers ───────────────────────────────────────────────
