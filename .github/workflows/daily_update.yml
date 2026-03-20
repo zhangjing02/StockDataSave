@@ -31,18 +31,22 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install pytz peewee multitasking websockets urllib3 tzdata typing-extensions soupsieve six pycparser protobuf platformdirs numpy idna frozendict charset-normalizer certifi requests python-dateutil cffi beautifulsoup4 pandas curl_cffi yfinance deep-translator
 
       - name: Run Fetcher Script
         env:
           TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}  # 如果没有填，会回退到 yfinance
-        run: |
-          python us_data_fetcher.py
+        run: python us_data_fetcher.py
 
+      - name: Run News Fetcher
+        env:
+          TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
+        run: python news_fetcher.py
+        
       - name: Commit and push changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add -f data/
-          git commit -m "Auto-update daily OHLCV data" || echo "No changes to commit"
+          git commit -m "Auto-update daily data and news" || echo "No changes to commit"
           git push
