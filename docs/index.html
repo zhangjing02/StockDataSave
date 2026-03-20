@@ -4,87 +4,88 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CZSC 美股量化分析平台</title>
-  <meta name="description" content="基于缠中说禅理论的美股高精度K线分析平台，实时读取GitHub数据仓，展示5分钟K线与新闻早报。" />
+  <meta name="description" content="基于缠中说禅理论的美股/加密货币高精度K线分析平台" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
   <!-- Header -->
   <header class="header">
     <div class="header-left">
       <div class="logo">📈 CZSC · 美股量化</div>
-      <div class="market-status" id="marketStatus">
-        <span class="dot"></span>
-        <span id="marketStatusText">市场状态加载中...</span>
+      <div class="market-status">
+        <span class="dot" id="marketDot"></span>
+        <span id="marketStatusText">加载中...</span>
       </div>
     </div>
     <nav class="header-right">
-      <button class="nav-btn active" onclick="switchTab('chart')">K 线图</button>
-      <button class="nav-btn" onclick="switchTab('news')">新闻早报</button>
+      <button class="nav-btn active" id="btnChart" onclick="switchTab('Chart')">K 线图</button>
+      <button class="nav-btn" id="btnNews" onclick="switchTab('News')">新闻早报</button>
     </nav>
   </header>
 
   <!-- Main Layout -->
   <main class="main-layout">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-title">自选股</div>
-      <div class="stock-list" id="stockList">
-        <!-- dynamically populated -->
+
+    <!-- Control Bar (replaces sidebar) -->
+    <div class="control-bar">
+      <!-- Category Tabs -->
+      <div class="cat-tabs">
+        <button class="cat-btn active" id="catStock" onclick="switchCategory('stock')">📊 股票</button>
+        <button class="cat-btn" id="catEtf" onclick="switchCategory('etf')">🏛️ ETF</button>
+        <button class="cat-btn" id="catCrypto" onclick="switchCategory('crypto')">₿ 加密币</button>
       </div>
 
-      <div class="sidebar-title" style="margin-top: 24px;">ETF 指数</div>
-      <div class="stock-list" id="etfList">
-        <!-- dynamically populated -->
+      <!-- Symbol Selector -->
+      <div class="select-wrap">
+        <select id="symbolSelect" onchange="onSymbolChange(this.value)">
+          <option value="">选择标的...</option>
+        </select>
       </div>
 
-      <div class="sidebar-divider"></div>
-
-      <div class="sidebar-title">时间周期</div>
-      <div class="timeframe-group">
-        <button class="tf-btn active" onclick="switchTimeframe('5m')">5分钟</button>
-        <button class="tf-btn" onclick="switchTimeframe('1d')">日线</button>
+      <!-- Timeframe -->
+      <div class="tf-group">
+        <button class="tf-btn active" id="tf5m" onclick="switchTF('5m', this)">5分钟</button>
+        <button class="tf-btn" id="tf1d" onclick="switchTF('1d', this)">日线</button>
       </div>
-    </aside>
+
+      <!-- Quick Stats Bar -->
+      <div class="quick-stats">
+        <div class="stat-chip">
+          <span class="stat-label">现价</span>
+          <span class="stat-val" id="qPrice">—</span>
+        </div>
+        <div class="stat-chip">
+          <span class="stat-label">涨跌幅</span>
+          <span class="stat-val" id="qChg">—</span>
+        </div>
+        <div class="stat-chip">
+          <span class="stat-label">最高</span>
+          <span class="stat-val" id="qHigh">—</span>
+        </div>
+        <div class="stat-chip">
+          <span class="stat-label">最低</span>
+          <span class="stat-val" id="qLow">—</span>
+        </div>
+        <div class="stat-chip">
+          <span class="stat-label">成交量</span>
+          <span class="stat-val" id="qVol">—</span>
+        </div>
+        <div class="stat-chip">
+          <span class="stat-label">条数</span>
+          <span class="stat-val" id="qCount">—</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Content Area -->
     <div class="content-area">
+
       <!-- Chart Tab -->
       <div id="tabChart" class="tab-panel active">
-        <div class="chart-header">
-          <div>
-            <div class="symbol-name" id="symbolName">AAPL</div>
-            <div class="symbol-info" id="symbolInfo">Apple Inc. · 5分钟</div>
-          </div>
-          <div class="price-display">
-            <span class="price-value" id="priceValue">—</span>
-            <span class="price-change" id="priceChange"></span>
-          </div>
-        </div>
         <div id="chartContainer"></div>
-        <div class="chart-footer">
-          <div class="stat-item">
-            <span class="stat-label">开盘</span>
-            <span class="stat-value" id="statOpen">—</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">最高</span>
-            <span class="stat-value" id="statHigh">—</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">最低</span>
-            <span class="stat-value" id="statLow">—</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">成交量</span>
-            <span class="stat-value" id="statVol">—</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">数据条数</span>
-            <span class="stat-value" id="statCount">—</span>
-          </div>
-        </div>
         <div class="loading-overlay" id="loadingOverlay">
           <div class="spinner"></div>
           <div class="loading-text">正在加载行情数据...</div>
@@ -105,6 +106,7 @@
           <div class="news-loading">正在加载新闻...</div>
         </div>
       </div>
+
     </div>
   </main>
 

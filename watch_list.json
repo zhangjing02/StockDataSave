@@ -1,4 +1,16 @@
 {
-  "stocks": ["AAPL", "TSLA", "MSFT", "NVDA"],
-  "etfs": ["SPY", "QQQ"]
+  "stocks": [
+    "AAPL", "MSFT", "NVDA", "TSLA", "META", "AMZN", "GOOG", "AMD",
+    "PLTR", "SMCI", "ARM", "ORCL", "ASML", "TSM", "AVGO", "MU",
+    "RKLB", "COIN", "NFLX", "DIS", "RIVN", "BABA", "NIO", "XPEV",
+    "BA", "DAL", "OXY", "ADBE", "NVO", "IBKR", "PDD", "BILI",
+    "FCX", "INTC", "QCOM"
+  ],
+  "etfs": [
+    "SPY", "QQQ", "IWM", "SMH", "ARKK", "SOXS", "UVXY", "KWEB"
+  ],
+  "crypto": [
+    "BTC-USD", "ETH-USD", "BNB-USD", "SOL-USD", "XRP-USD",
+    "DOGE-USD", "ADA-USD", "AVAX-USD", "SHIB-USD", "DOT-USD"
+  ]
 }

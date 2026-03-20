@@ -1,489 +1,413 @@
-/**
- * CZSC 美股量化分析平台 - 核心逻辑
- * 数据源：GitHub Raw (zhangjing02/StockDataSave)
- */
+// ============================================================
+//  CZSC 美股量化平台 - app.js (重构版 · 下拉选择器)
+// ============================================================
 
-// ============================================================
-// 配置
-// ============================================================
 const CONFIG = {
-  REPO_RAW: 'https://raw.githubusercontent.com/zhangjing02/StockDataSave/main',
-  REPO_OWNER: 'zhangjing02',
-  REPO_NAME: 'StockDataSave',
-  SYMBOLS_STOCKS: ['AAPL', 'TSLA', 'MSFT', 'NVDA'],
-  SYMBOLS_ETFS: ['SPY', 'QQQ'],
-  DEFAULT_SYMBOL: 'AAPL',
-  DEFAULT_TF: '5m',
+  RAW_BASE: 'https://raw.githubusercontent.com/zhangjing02/StockDataSave/main',
+  DATA_PATH: 'data',
+  MONTHS_BACK: 3,
+
+  stocks: [
+    'AAPL','MSFT','NVDA','TSLA','META','AMZN','GOOG','AMD',
+    'PLTR','SMCI','ARM','ORCL','ASML','TSM','AVGO','MU',
+    'RKLB','COIN','NFLX','DIS','RIVN','BABA','NIO','XPEV',
+    'BA','DAL','OXY','ADBE','NVO','IBKR','PDD','BILI',
+    'FCX','INTC','QCOM'
+  ],
+  etfs: [
+    'SPY','QQQ','IWM','SMH','ARKK','UVXY','KWEB','SOXS'
+  ],
+  crypto: [
+    'BTC-USD','ETH-USD','BNB-USD','SOL-USD','XRP-USD',
+    'DOGE-USD','ADA-USD','AVAX-USD','SHIB-USD','DOT-USD'
+  ],
+
+  // Friendly display names
+  names: {
+    'AAPL':'Apple Inc.', 'MSFT':'Microsoft', 'NVDA':'NVIDIA',
+    'TSLA':'Tesla', 'META':'Meta Platforms', 'AMZN':'Amazon',
+    'GOOG':'Alphabet (Google)', 'AMD':'AMD', 'PLTR':'Palantir',
+    'SMCI':'Super Micro', 'ARM':'ARM Holdings', 'ORCL':'Oracle',
+    'ASML':'ASML', 'TSM':'Taiwan Semiconductor', 'AVGO':'Broadcom',
+    'MU':'Micron', 'RKLB':'Rocket Lab', 'COIN':'Coinbase',
+    'NFLX':'Netflix', 'DIS':'Disney', 'RIVN':'Rivian',
+    'BABA':'Alibaba', 'NIO':'NIO', 'XPEV':'XPeng',
+    'BA':'Boeing', 'DAL':'Delta Air Lines', 'OXY':'Occidental',
+    'ADBE':'Adobe', 'NVO':'Novo Nordisk', 'IBKR':'Interactive Brokers',
+    'PDD':'PDD Holdings', 'BILI':'Bilibili', 'FCX':'Freeport-McMoRan',
+    'INTC':'Intel', 'QCOM':'Qualcomm',
+    'SPY':'S&P 500 ETF', 'QQQ':'Nasdaq 100 ETF', 'IWM':'Russell 2000 ETF',
+    'SMH':'Semiconductor ETF', 'ARKK':'ARK Innovation ETF',
+    'UVXY':'VIX ETF 1.5x', 'KWEB':'China Internet ETF', 'SOXS':'Semiconductor Bear',
+    'BTC-USD':'Bitcoin', 'ETH-USD':'Ethereum', 'BNB-USD':'BNB',
+    'SOL-USD':'Solana', 'XRP-USD':'XRP', 'DOGE-USD':'Dogecoin',
+    'ADA-USD':'Cardano', 'AVAX-USD':'Avalanche', 'SHIB-USD':'Shiba Inu', 'DOT-USD':'Polkadot'
+  }
 };
 
-// ============================================================
-// 全局状态
-// ============================================================
-const state = {
-  currentSymbol: CONFIG.DEFAULT_SYMBOL,
-  currentTF: CONFIG.DEFAULT_TF,
-  chart: null,
-  candleSeries: null,
-  volumeSeries: null,
-  priceCache: {},  // symbol -> last price info
+// ── State ────────────────────────────────────────────────
+let state = {
+  category: 'stock',   // 'stock' | 'etf' | 'crypto'
+  symbol:   'AAPL',
+  tf:       '5m',
+  activeTab:'Chart',
 };
 
-// ============================================================
-// 工具函数
-// ============================================================
+let chart = null;
+let candleSeries = null;
+let volumeSeries = null;
 
-/** 获取 UTC 偏移的当前日期字符串 YYYY-MM-DD */
-function todayStr() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
-}
+// ── Init ─────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  buildSelect('stock');
+  updateMarketStatus();
+  setInterval(updateMarketStatus, 60000);
 
-/** 解析 CSV 文本 → [{time, open, high, low, close, volume}] */
-function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',');
-    if (cols.length < 7) continue;
-    // cols: symbol, dt, open, close, high, low, vol, amount
-    const dtStr = cols[1].trim();      // "2026-03-02 14:30:00"
-    const open   = parseFloat(cols[2]);
-    const close  = parseFloat(cols[3]);
-    const high   = parseFloat(cols[4]);
-    const low    = parseFloat(cols[5]);
-    const vol    = parseFloat(cols[6]);
-    if (isNaN(open) || isNaN(close)) continue;
-    // Convert dt → Unix timestamp (UTC)
-    const ts = Math.floor(new Date(dtStr + 'Z').getTime() / 1000);
-    rows.push({ time: ts, open, high, low, close, value: vol });
+  // Init chart
+  initChart();
+  loadChart();
+
+  // Default news date = today
+  const today = getTodayStr();
+  const dateInput = document.getElementById('newsDateInput');
+  if (dateInput) dateInput.value = today;
+});
+
+// ── Category Switch ──────────────────────────────────────
+function switchCategory(cat) {
+  state.category = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById(
+    cat === 'stock' ? 'catStock' : cat === 'etf' ? 'catEtf' : 'catCrypto'
+  );
+  if (btn) {
+    btn.classList.add('active');
+    btn.className = btn.className.replace(/ crypto| etf/g, '');
+    if (cat === 'crypto') btn.classList.add('crypto');
+    if (cat === 'etf')    btn.classList.add('etf');
   }
-  // Sort ascending by time
-  rows.sort((a, b) => a.time - b.time);
-  return rows;
+  buildSelect(cat);
 }
 
-/** 生成从 startMonth 到 endMonth 的月份列表 (格式 YYYY-MM) */
-function monthRange(startYM, endYM) {
-  const result = [];
-  let [sy, sm] = startYM.split('-').map(Number);
-  const [ey, em] = endYM.split('-').map(Number);
-  while (sy < ey || (sy === ey && sm <= em)) {
-    result.push(`${sy}-${String(sm).padStart(2, '0')}`);
-    sm++;
-    if (sm > 12) { sm = 1; sy++; }
+function buildSelect(cat) {
+  const sel = document.getElementById('symbolSelect');
+  const pool = CONFIG[cat === 'stock' ? 'stocks' : cat === 'etf' ? 'etfs' : 'crypto'];
+  sel.innerHTML = '';
+  pool.forEach(sym => {
+    const opt = document.createElement('option');
+    opt.value = sym;
+    opt.textContent = `${sym}  ${CONFIG.names[sym] ? '· ' + CONFIG.names[sym] : ''}`;
+    sel.appendChild(opt);
+  });
+  // Auto-select first item in category, or keep previous if still valid
+  const keep = pool.includes(state.symbol) ? state.symbol : pool[0];
+  sel.value = keep;
+  state.symbol = keep;
+  loadChart();
+}
+
+function onSymbolChange(sym) {
+  if (!sym) return;
+  state.symbol = sym;
+  loadChart();
+}
+
+// ── Timeframe ────────────────────────────────────────────
+function switchTF(tf, btn) {
+  state.tf = tf;
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadChart();
+}
+
+// ── Tab Switch ───────────────────────────────────────────
+function switchTab(tab) {
+  state.activeTab = tab;
+  ['Chart', 'News'].forEach(t => {
+    document.getElementById('tab' + t)?.classList.toggle('active', t === tab);
+    document.getElementById('btn' + t)?.classList.toggle('active', t === tab);
+  });
+  if (tab === 'News') {
+    const input = document.getElementById('newsDateInput');
+    if (input) loadNews(input.value || getTodayStr());
   }
-  return result;
 }
 
-/** 格式化数字 */
-function fmt(n, decimals = 2) {
-  if (n === undefined || n === null || isNaN(n)) return '—';
-  return n.toFixed(decimals);
+// ── Chart Init ───────────────────────────────────────────
+function initChart() {
+  const container = document.getElementById('chartContainer');
+  chart = LightweightCharts.createChart(container, {
+    width:  container.clientWidth,
+    height: container.clientHeight,
+    layout: { background:{color:'#0d1117'}, textColor:'#8b949e' },
+    grid: {
+      vertLines: { color:'rgba(33,38,45,0.5)' },
+      horzLines: { color:'rgba(33,38,45,0.5)' }
+    },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor:'#21262d' },
+    timeScale: { borderColor:'#21262d', timeVisible:true, secondsVisible:false }
+  });
+
+  candleSeries = chart.addCandlestickSeries({
+    upColor:'#3fb950', wickUpColor:'#3fb950',
+    downColor:'#f85149', wickDownColor:'#f85149',
+    borderVisible: false
+  });
+
+  volumeSeries = chart.addHistogramSeries({
+    priceFormat: { type:'volume' },
+    priceScaleId: 'vol',
+    scaleMargins: { top:0.85, bottom:0 }
+  });
+
+  window.addEventListener('resize', () => {
+    chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+  });
 }
 
-function fmtVol(v) {
-  if (!v || isNaN(v)) return '—';
-  if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
-  if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
-  return v.toFixed(0);
+// ── Data Loading ─────────────────────────────────────────
+async function loadChart() {
+  showLoading(true);
+  hideError();
+
+  const sym = state.symbol;
+  const tf  = state.tf;
+
+  try {
+    const data = await fetchAllData(sym, tf);
+    if (data.length === 0) {
+      showError(`⚠️ 未找到 ${sym} 的行情数据（${tf}）`);
+      return;
+    }
+    renderChart(data);
+    updateStats(sym, data);
+  } catch (e) {
+    console.error(e);
+    showError(`❌ 加载失败：${e.message}`);
+  } finally {
+    showLoading(false);
+  }
 }
 
-// ============================================================
-// 数据加载
-// ============================================================
-
-/**
- * 拉取某标的的全部月份 CSV 并合并
- * 5m 数据：data/{symbol}/{YYYY-MM}_5m.csv
- */
 async function fetchAllData(symbol, tf) {
-  // 从 2026-02 起（Actions 第一次跑的时间）到当前月
-  const start = '2026-02';
-  const nowD  = new Date();
-  const end   = `${nowD.getUTCFullYear()}-${String(nowD.getUTCMonth() + 1).padStart(2, '0')}`;
-  const months = monthRange(start, end);
+  const suffix = tf === '5m' ? '_5m.csv' : '_1d.csv';
+  const months = getRecentMonths(CONFIG.MONTHS_BACK);
+  const symPath = symbol.replace('-', '-'); // keep as-is (e.g. BTC-USD)
 
-  const suffix = tf === '5m' ? '_5m' : '_1d';
   const fetches = months.map(m =>
-    fetch(`${CONFIG.REPO_RAW}/data/${symbol}/${m}${suffix}.csv`)
+    fetch(`${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${symbol}/${m}${suffix}`)
       .then(r => r.ok ? r.text() : '')
       .catch(() => '')
   );
 
   const texts = await Promise.all(fetches);
-  let allRows = [];
-  for (const txt of texts) {
-    if (txt) allRows = allRows.concat(parseCSV(txt));
-  }
+  let rows = [];
+  texts.forEach(t => { if (t) rows = rows.concat(parseCSV(t)); });
 
-  // 去重并排序（按 time）
+  // Deduplicate + sort
   const seen = new Set();
-  const deduped = allRows.filter(r => {
+  rows = rows.filter(r => {
     if (seen.has(r.time)) return false;
     seen.add(r.time);
     return true;
   });
-  deduped.sort((a, b) => a.time - b.time);
-  return deduped;
+  rows.sort((a,b) => a.time - b.time);
+  return rows;
 }
 
-// ============================================================
-// 图表初始化
-// ============================================================
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = lines[0].toLowerCase().split(',');
+  const dtIdx = headers.indexOf('dt');
+  const oIdx  = headers.indexOf('open');
+  const cIdx  = headers.indexOf('close');
+  const hIdx  = headers.indexOf('high');
+  const lIdx  = headers.indexOf('low');
+  const vIdx  = headers.indexOf('vol');
+  if ([dtIdx,oIdx,cIdx,hIdx,lIdx].some(i => i < 0)) return [];
 
-function initChart() {
-  const container = document.getElementById('chartContainer');
-  const { width, height } = container.getBoundingClientRect();
-
-  state.chart = LightweightCharts.createChart(container, {
-    width,
-    height,
-    layout: {
-      background: { color: '#0d1117' },
-      textColor:  '#8b949e',
-      fontFamily: 'Inter, sans-serif',
-    },
-    grid: {
-      vertLines: { color: '#161b22' },
-      horzLines: { color: '#161b22' },
-    },
-    crosshair: {
-      mode: LightweightCharts.CrosshairMode.Normal,
-      vertLine: { color: '#333d4c', labelBackgroundColor: '#21262d' },
-      horzLine: { color: '#333d4c', labelBackgroundColor: '#21262d' },
-    },
-    rightPriceScale: {
-      borderColor: '#21262d',
-      textColor: '#8b949e',
-    },
-    timeScale: {
-      borderColor: '#21262d',
-      timeVisible: true,
-      secondsVisible: false,
-      tickMarkFormatter: (time) => {
-        const d = new Date(time * 1000);
-        return `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;
-      },
-    },
-    handleScroll: true,
-    handleScale:  true,
-  });
-
-  // 蜡烛图
-  state.candleSeries = state.chart.addCandlestickSeries({
-    upColor:          '#3fb950',
-    downColor:        '#f85149',
-    borderUpColor:    '#3fb950',
-    borderDownColor:  '#f85149',
-    wickUpColor:      '#3fb950',
-    wickDownColor:    '#f85149',
-  });
-
-  // 成交量（柱状，置于底部 20%）
-  state.volumeSeries = state.chart.addHistogramSeries({
-    color:         '#388bfd',
-    priceFormat:   { type: 'volume' },
-    priceScaleId:  'volume',
-    scaleMargins:  { top: 0.85, bottom: 0 },
-  });
-  state.chart.priceScale('volume').applyOptions({
-    scaleMargins: { top: 0.85, bottom: 0 },
-    borderVisible: false,
-  });
-
-  // 十字线移动时更新右上角价格显示
-  state.chart.subscribeCrosshairMove(param => {
-    if (!param.time || !param.seriesData) return;
-    const bar = param.seriesData.get(state.candleSeries);
-    if (!bar) return;
-    document.getElementById('priceValue').textContent = fmt(bar.close);
-    document.getElementById('statOpen').textContent   = fmt(bar.open);
-    document.getElementById('statHigh').textContent   = fmt(bar.high);
-    document.getElementById('statLow').textContent    = fmt(bar.low);
-    const volBar = param.seriesData.get(state.volumeSeries);
-    document.getElementById('statVol').textContent    = volBar ? fmtVol(volBar.value) : '—';
-  });
-
-  // 响应式
-  const ro = new ResizeObserver(() => {
-    const { width: w, height: h } = container.getBoundingClientRect();
-    state.chart.applyOptions({ width: w, height: h });
-  });
-  ro.observe(container);
-}
-
-// ============================================================
-// 渲染数据
-// ============================================================
-
-async function loadChart(symbol, tf) {
-  const overlay = document.getElementById('loadingOverlay');
-  const errBox  = document.getElementById('errorBox');
-  overlay.style.display = 'flex';
-  errBox.style.display  = 'none';
-
-  try {
-    const rows = await fetchAllData(symbol, tf);
-
-    if (!rows.length) {
-      throw new Error(`未找到 ${symbol} 的行情数据（${tf}）。`);
-    }
-
-    // 拆分 candles / volume
-    const candles = rows.map(r => ({
-      time:  r.time,
-      open:  r.open,
-      high:  r.high,
-      low:   r.low,
-      close: r.close,
-    }));
-    const volumes = rows.map(r => ({
-      time:  r.time,
-      value: r.value,
-      color: r.close >= r.open ? 'rgba(63,185,80,0.4)' : 'rgba(248,81,73,0.4)',
-    }));
-
-    state.candleSeries.setData(candles);
-    state.volumeSeries.setData(volumes);
-    state.chart.timeScale().fitContent();
-
-    // 最新 bar 统计
-    const last = rows[rows.length - 1];
-    const first = rows[0];
-    const chg   = ((last.close - first.open) / first.open * 100);
-
-    document.getElementById('symbolName').textContent  = symbol;
-    document.getElementById('symbolInfo').textContent  = `${getFullName(symbol)} · ${tf}`;
-    document.getElementById('priceValue').textContent  = fmt(last.close);
-    document.getElementById('statOpen').textContent    = fmt(last.open);
-    document.getElementById('statHigh').textContent    = fmt(last.high);
-    document.getElementById('statLow').textContent     = fmt(last.low);
-    document.getElementById('statVol').textContent     = fmtVol(last.value);
-    document.getElementById('statCount').textContent   = rows.length.toLocaleString() + ' 条';
-
-    const chgEl = document.getElementById('priceChange');
-    chgEl.textContent = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`;
-    chgEl.className = 'price-change ' + (chg >= 0 ? 'up' : 'down');
-
-    // 缓存价格给侧边栏
-    state.priceCache[symbol] = { price: last.close, chg };
-    updateSidebarPrices();
-
-  } catch (e) {
-    console.error(e);
-    errBox.style.display = 'block';
-    errBox.textContent   = `⚠️ ${e.message}`;
-  } finally {
-    overlay.style.display = 'none';
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',');
+    if (cols.length < 5) continue;
+    try {
+      const ts = Math.floor(new Date(cols[dtIdx].replace(' ','T') + 'Z').getTime() / 1000);
+      if (isNaN(ts)) continue;
+      rows.push({
+        time:  ts,
+        open:  parseFloat(cols[oIdx]),
+        high:  parseFloat(cols[hIdx]),
+        low:   parseFloat(cols[lIdx]),
+        close: parseFloat(cols[cIdx]),
+        value: vIdx >= 0 ? parseFloat(cols[vIdx]) : 0
+      });
+    } catch { /* skip bad row */ }
   }
+  return rows;
 }
 
-// ============================================================
-// 侧边栏
-// ============================================================
-
-function getFullName(sym) {
-  const map = {
-    AAPL: 'Apple Inc.',
-    TSLA: 'Tesla Inc.',
-    MSFT: 'Microsoft Corp.',
-    NVDA: 'NVIDIA Corp.',
-    SPY:  'S&P 500 ETF',
-    QQQ:  'Nasdaq 100 ETF',
-  };
-  return map[sym] || sym;
+function renderChart(data) {
+  const candles = data.map(d => ({ time:d.time, open:d.open, high:d.high, low:d.low, close:d.close }));
+  const volumes = data.map(d => ({
+    time:  d.time,
+    value: d.value,
+    color: d.close >= d.open ? 'rgba(63,185,80,0.5)' : 'rgba(248,81,73,0.5)'
+  }));
+  candleSeries.setData(candles);
+  volumeSeries.setData(volumes);
+  chart.timeScale().fitContent();
 }
 
-function buildSidebar(symbols, containerId, isETF = false) {
-  const el = document.getElementById(containerId);
-  el.innerHTML = '';
-  for (const sym of symbols) {
-    const item = document.createElement('div');
-    item.className = 'stock-item' + (sym === state.currentSymbol ? ' active' : '');
-    item.id = `stock-item-${sym}`;
-    item.onclick = () => selectSymbol(sym);
-    item.innerHTML = `
-      <span class="stock-symbol">${sym}</span>
-      <span class="stock-price" id="price-${sym}">—</span>
-    `;
-    el.appendChild(item);
-  }
+function updateStats(sym, data) {
+  if (!data.length) return;
+  const last = data[data.length - 1];
+  const first = data[0];
+
+  const price  = last.close.toFixed(last.close < 1 ? 6 : 2);
+  const change = (((last.close - first.open) / first.open) * 100).toFixed(2);
+  const isUp   = last.close >= first.open;
+
+  const highs  = Math.max(...data.map(d => d.high)).toFixed(last.close < 1 ? 6 : 2);
+  const lows   = Math.min(...data.map(d => d.low)).toFixed(last.close < 1 ? 6 : 2);
+  const vol    = formatVolume(data.reduce((s, d) => s + (d.value || 0), 0));
+
+  setStatVal('qPrice',  price,  isUp ? 'up' : 'down');
+  setStatVal('qChg',    `${isUp ? '+' : ''}${change}%`, isUp ? 'up' : 'down');
+  setStatVal('qHigh',   highs);
+  setStatVal('qLow',    lows);
+  setStatVal('qVol',    vol);
+  setStatVal('qCount',  data.length + ' K');
 }
 
-function updateSidebarPrices() {
-  for (const [sym, info] of Object.entries(state.priceCache)) {
-    const el = document.getElementById(`price-${sym}`);
-    if (!el) continue;
-    el.textContent = `$${fmt(info.price)}`;
-    el.className = 'stock-price ' + (info.chg >= 0 ? 'up' : 'down');
-  }
+function setStatVal(id, val, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = val;
+  el.className = 'stat-val' + (cls ? ' ' + cls : '');
 }
 
-function selectSymbol(sym) {
-  // Active highlight
-  document.querySelectorAll('.stock-item').forEach(el => el.classList.remove('active'));
-  const item = document.getElementById(`stock-item-${sym}`);
-  if (item) item.classList.add('active');
-
-  state.currentSymbol = sym;
-  loadChart(sym, state.currentTF);
+function formatVolume(v) {
+  if (v >= 1e9) return (v/1e9).toFixed(1) + 'B';
+  if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return (v/1e3).toFixed(1) + 'K';
+  return v.toFixed(0);
 }
 
-// ============================================================
-// 时间周期切换
-// ============================================================
-
-function switchTimeframe(tf) {
-  state.currentTF = tf;
-  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-  loadChart(state.currentSymbol, tf);
-}
-
-// ============================================================
-// Tab 切换
-// ============================================================
-
-function switchTab(tab) {
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-  event.target.classList.add('active');
-
-  if (tab === 'news') {
-    const input = document.getElementById('newsDateInput');
-    if (!input.value) {
-      input.value = todayStr();
-      loadNews(input.value);
-    }
-  }
-}
-
-// ============================================================
-// 新闻模块
-// ============================================================
-
+// ── News ─────────────────────────────────────────────────
 async function loadNews(dateStr) {
-  if (!dateStr) return;
-  const container = document.getElementById('newsContent');
-  container.innerHTML = '<div class="news-loading">⏳ 正在加载新闻...</div>';
+  if (!dateStr) dateStr = getTodayStr();
+  const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/news/${dateStr}.md`;
+  const el  = document.getElementById('newsContent');
+  el.innerHTML = '<div class="news-loading">正在加载新闻...</div>';
 
-  const url = `${CONFIG.REPO_RAW}/data/news/${dateStr}.md`;
   try {
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error('该日期暂无新闻数据。');
-    const md = await resp.text();
-    container.innerHTML = renderNewsMarkdown(md);
+    const res = await fetch(url);
+    if (!res.ok) {
+      // Try yesterday
+      const yesterday = getYesterdayStr(dateStr);
+      const res2 = await fetch(`${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/news/${yesterday}.md`);
+      if (!res2.ok) {
+        el.innerHTML = `<div class="news-empty">📭 暂无 ${dateStr} 的新闻早报，数据将在每日 Action 后更新。</div>`;
+        return;
+      }
+      el.innerHTML = renderNewsMarkdown(await res2.text(), yesterday);
+      return;
+    }
+    el.innerHTML = renderNewsMarkdown(await res.text(), dateStr);
   } catch (e) {
-    container.innerHTML = `<div class="news-empty">📭 ${e.message}</div>`;
+    el.innerHTML = `<div class="news-empty">❌ 加载失败：${e.message}</div>`;
   }
 }
 
-/**
- * 将新闻 Markdown 渲染为 HTML
- * 格式：## 标题、- 条目
- */
-function renderNewsMarkdown(md) {
-  const lines = md.split('\n');
+function renderNewsMarkdown(md, dateLbl) {
   let html = '';
-  let inSection = false;
+  let current = '';
+  let items  = [];
 
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) continue;
+  const flush = () => {
+    if (!current && !items.length) return;
+    html += `<div class="news-section">`;
+    if (current) html += `<div class="news-section-title">${current}</div>`;
+    items.forEach(it => {
+      html += `<div class="news-item"><span class="news-bullet">›</span><span class="news-text">${it}</span></div>`;
+    });
+    html += `</div>`;
+    items = [];
+    current = '';
+  };
 
-    if (line.startsWith('# ')) {
-      // 主标题：忽略（已有页面标题）
-      continue;
+  md.split('\n').forEach(line => {
+    line = line.trim();
+    if (!line) return;
+    if (line.startsWith('# ') || line.startsWith('## ') || line.startsWith('### ')) {
+      flush();
+      current = line.replace(/^#+\s*/, '');
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      items.push(line.slice(2));
+    } else if (line.match(/^\d+\.\s/)) {
+      items.push(line.replace(/^\d+\.\s/, ''));
     }
-
-    if (line.startsWith('## ')) {
-      if (inSection) html += '</div>';
-      const title = line.replace('## ', '');
-      html += `<div class="news-section"><div class="news-section-title">${title}</div>`;
-      inSection = true;
-      continue;
-    }
-
-    if (line.startsWith('- ') || line.startsWith('* ')) {
-      const text = line.replace(/^[-*]\s+/, '');
-      html += `<div class="news-item">
-        <span class="news-bullet">›</span>
-        <span class="news-text">${escapeHtml(text)}</span>
-      </div>`;
-    }
-  }
-
-  if (inSection) html += '</div>';
-  return html || '<div class="news-empty">📭 无法解析新闻内容。</div>';
+  });
+  flush();
+  return html || `<div class="news-empty">📭 ${dateLbl} 暂无新闻内容</div>`;
 }
 
-function escapeHtml(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-// ============================================================
-// 市场状态（简单判断：美东时间 09:30~16:00 工作日）
-// ============================================================
-
-function updateMarketStatus() {
+// ── Helpers ───────────────────────────────────────────────
+function getRecentMonths(n) {
+  const months = [];
   const now = new Date();
-  // 美东时间偏移：EST = UTC-5, EDT = UTC-4
-  const etOffset = isDST(now) ? -4 : -5;
-  const etHour   = (now.getUTCHours() + 24 + etOffset) % 24;
-  const etMin    = now.getUTCMinutes();
-  const etDay    = now.getUTCDay(); // 0=Sun
-  const etTotal  = etHour * 60 + etMin;
-
-  const isWeekday = etDay >= 1 && etDay <= 5;
-  const isOpen    = isWeekday && etTotal >= 9 * 60 + 30 && etTotal < 16 * 60;
-
-  const dot  = document.querySelector('.dot');
-  const text = document.getElementById('marketStatusText');
-
-  if (isOpen) {
-    dot.classList.remove('closed');
-    text.textContent = '美股交易中';
-  } else {
-    dot.classList.add('closed');
-    const hh = String(etHour).padStart(2, '0');
-    const mm = String(etMin).padStart(2, '0');
-    text.textContent = `市场已收盘 (ET ${hh}:${mm})`;
+  for (let i = 0; i < n; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const m = d.getMonth() + 1;
+    months.push(`${d.getFullYear()}-${String(m).padStart(2,'0')}`);
   }
+  return months;
 }
 
-function isDST(date) {
-  // 简版 DST：3月第2个周日到11月第1个周日
-  const year = date.getUTCFullYear();
-  const marchStart  = new Date(Date.UTC(year, 2, 14 - (new Date(Date.UTC(year, 2, 1)).getUTCDay() + 6) % 7, 7));
-  const novEnd      = new Date(Date.UTC(year, 10, 7  - (new Date(Date.UTC(year, 10, 1)).getUTCDay() + 6) % 7, 6));
-  return date >= marchStart && date < novEnd;
+function getTodayStr() {
+  return new Date().toISOString().split('T')[0];
 }
 
-// ============================================================
-// 入口
-// ============================================================
+function getYesterdayStr(dateStr) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split('T')[0];
+}
 
-document.addEventListener('DOMContentLoaded', () => {
-  // 构建侧边栏
-  buildSidebar(CONFIG.SYMBOLS_STOCKS, 'stockList');
-  buildSidebar(CONFIG.SYMBOLS_ETFS,   'etfList', true);
+function showLoading(show) {
+  const el = document.getElementById('loadingOverlay');
+  if (el) el.style.display = show ? 'flex' : 'none';
+}
 
-  // 初始化图表
-  initChart();
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
 
-  // 加载默认标的
-  loadChart(CONFIG.DEFAULT_SYMBOL, CONFIG.DEFAULT_TF);
+function hideError() {
+  const el = document.getElementById('errorBox');
+  if (el) el.style.display = 'none';
+}
 
-  // 市场状态
-  updateMarketStatus();
-  setInterval(updateMarketStatus, 60_000);
+// ── Market Status ─────────────────────────────────────────
+function updateMarketStatus() {
+  const dot  = document.getElementById('marketDot');
+  const text = document.getElementById('marketStatusText');
+  if (!dot || !text) return;
 
-  // 新闻日期默认今天
-  document.getElementById('newsDateInput').max = todayStr();
-});
+  const now  = new Date();
+  const etNow = new Date(now.toLocaleString('en-US', { timeZone:'America/New_York' }));
+  const day  = etNow.getDay();
+  const h    = etNow.getHours();
+  const m    = etNow.getMinutes();
+  const mins = h * 60 + m;
+
+  const isWeekday  = day >= 1 && day <= 5;
+  const inSession  = mins >= 9*60+30 && mins < 16*60;
+  const isOpen     = isWeekday && inSession;
+
+  dot.className  = 'dot' + (isOpen ? '' : ' closed');
+  text.textContent = isOpen ? '美股交易中' : '美股休市';
+}

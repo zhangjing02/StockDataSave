@@ -11,10 +11,12 @@ TIINGO_API_KEY = os.environ.get("TIINGO_API_KEY")
 
 def load_watchlist():
     if not os.path.exists(WATCHLIST_FILE):
-        return []
+        return [], []
     with open(WATCHLIST_FILE, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    return list(set(data.get('stocks', []) + data.get('etfs', [])))
+    equity_symbols = list(set(data.get('stocks', []) + data.get('etfs', [])))
+    crypto_symbols = list(set(data.get('crypto', [])))
+    return equity_symbols, crypto_symbols
 
 def ensure_dir_exists(symbol):
     path = os.path.join(DATA_DIR, symbol)
@@ -114,10 +116,11 @@ def process_symbol(symbol):
     print(f"[{symbol}] Successfully saved/updated data spanning {len(months)} months.")
 
 def main():
-    symbols = load_watchlist()
-    print(f"Loaded {len(symbols)} symbols from watch list.")
+    equity_symbols, crypto_symbols = load_watchlist()
+    all_symbols = equity_symbols + crypto_symbols
+    print(f"Loaded {len(equity_symbols)} equity, {len(crypto_symbols)} crypto symbols.")
     
-    for sym in symbols:
+    for sym in all_symbols:
         process_symbol(sym)
 
 if __name__ == "__main__":
