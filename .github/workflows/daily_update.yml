@@ -43,6 +43,6 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add data/
+          git add -f data/
           git commit -m "Auto-update daily OHLCV data" || echo "No changes to commit"
           git push
