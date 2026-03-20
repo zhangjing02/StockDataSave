@@ -52,7 +52,7 @@ def fetch_and_translate_news(ticker, section_title):
         title = content.get('title', '')
         description = content.get('summary', '')
         # Fallback if URL is missing
-        link = content.get('clickThroughUrl') or content.get('url') or link
+        link = content.get('clickThroughUrl') or content.get('url') or "https://finance.yahoo.com"
         
         provider = content.get('provider', {}).get('displayName', 'News')
         
@@ -77,8 +77,9 @@ def main():
     markdown_output += fetch_and_translate_news("SPY", "🌍 宏观市场综合新闻 (SPY 标普500)")
     markdown_output += fetch_and_translate_news("QQQ", "🌍 科技股大盘新闻 (QQQ 纳斯达克)")
     
-    # 2. Watchlist News
-    for tk in ["MSFT", "TSLA", "NVDA", "AAPL"]:
+    # 2. Watchlist News - Top 10 important ones to save time/limits
+    news_tickers = ["AAPL", "MSFT", "NVDA", "TSLA", "META", "AMZN", "GOOG", "AMD", "SMCI", "COIN"]
+    for tk in news_tickers:
         markdown_output += fetch_and_translate_news(tk, f"📈 个股新闻: {tk}")
 
     # Save to file
