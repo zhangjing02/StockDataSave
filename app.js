@@ -175,13 +175,18 @@ async function loadChart() {
   const tf  = state.tf;
 
   try {
-    const data = await fetchAllData(sym, tf);
-    if (data.length === 0) {
+    // 1. Load Price Data
+    const data = await fetchPriceData(sym, tf);
+    if (!data || data.length === 0) {
       showError(`⚠️ 未找到 ${sym} 的行情数据（${tf}）`);
       return;
     }
     renderChart(data);
     updateStats(sym, data);
+
+    // 2. Load and Render CZSC Signals (New)
+    loadSignals(sym, tf);
+
   } catch (e) {
     console.error(e);
     showError(`❌ 加载失败：${e.message}`);
@@ -190,31 +195,73 @@ async function loadChart() {
   }
 }
 
-async function fetchAllData(symbol, tf) {
-  const suffix = tf === '5m' ? '_5m.csv' : '_1d.csv';
-  const months = getRecentMonths(CONFIG.MONTHS_BACK);
-  const symPath = symbol.replace('-', '-'); // keep as-is (e.g. BTC-USD)
-
-  const fetches = months.map(m =>
-    fetch(`${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${symbol}/${m}${suffix}`)
-      .then(r => r.ok ? r.text() : '')
-      .catch(() => '')
-  );
-
-  const texts = await Promise.all(fetches);
-  let rows = [];
-  texts.forEach(t => { if (t) rows = rows.concat(parseCSV(t)); });
-
-  // Deduplicate + sort
-  const seen = new Set();
-  rows = rows.filter(r => {
-    if (seen.has(r.time)) return false;
-    seen.add(r.time);
-    return true;
-  });
-  rows.sort((a,b) => a.time - b.time);
-  return rows;
+async function fetchPriceData(symbol, tf) {
+  const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${symbol}_${tf}.csv`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const text = await res.text();
+    return parseCSV(text);
+  } catch (e) {
+    console.error(`Fetch error: ${url}`, e);
+    return [];
+  }
 }
+
+// New: Load and render CZSC signals (bi)
+let signalSeriesList = [];
+async function loadSignals(symbol, tf) {
+  // Clear old signals
+  signalSeriesList.forEach(s => chart.removeSeries(s));
+  signalSeriesList = [];
+
+  const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_${tf}_signals.json`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const signals = await res.json();
+    if (!signals.bi || signals.bi.length === 0) return;
+
+    // Create a new series for "Bi" (Strokes)
+    const biSeries = chart.addLineSeries({
+      color: '#ff9800',
+      lineWidth: 2,
+      lineStyle: LightweightCharts.LineStyle.Solid,
+      crosshairMarkerVisible: false,
+      lastValueVisible: false,
+      priceLineVisible: false
+    });
+    signalSeriesList.push(biSeries);
+
+    const biPoints = [];
+    signals.bi.forEach(b => {
+      // Parse dates: "2024-03-20 09:30:00"
+      const startTs = Math.floor(new Date(b.start_dt.replace(' ','T') + 'Z').getTime() / 1000);
+      const endTs   = Math.floor(new Date(b.end_dt.replace(' ','T') + 'Z').getTime() / 1000);
+      
+      if (!isNaN(startTs) && !isNaN(endTs)) {
+        biPoints.push({ time: startTs, value: b.direction === '1' || b.direction === 'up' ? b.low : b.high });
+        biPoints.push({ time: endTs,   value: b.direction === '1' || b.direction === 'up' ? b.high : b.low });
+      }
+    });
+
+    // Deduplicate points by time (crucial for LightweightCharts)
+    const uniqueBi = [];
+    const seenTimes = new Set();
+    biPoints.sort((a,b) => a.time - b.time); // Pre-sort
+    biPoints.forEach(p => {
+      if (!seenTimes.has(p.time)) {
+        uniqueBi.push(p);
+        seenTimes.add(p.time);
+      }
+    });
+    biSeries.setData(uniqueBi);
+
+  } catch (e) {
+    console.warn("Signals load failed or not available:", e);
+  }
+}
+
 
 function parseCSV(text) {
   const lines = text.trim().split('\n');

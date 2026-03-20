@@ -10,7 +10,7 @@ except ImportError:
 
 # Configuration
 DATA_DIR = "data"
-SIGNALS_DIR = "signals"
+SIGNALS_DIR = os.path.join(DATA_DIR, "analysis")
 os.makedirs(SIGNALS_DIR, exist_ok=True)
 
 def analyze_ticker(csv_path):
