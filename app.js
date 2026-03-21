@@ -51,10 +51,9 @@ let state = {
 };
 
 let chart = null;
-let candleSeries = null;
-let volumeSeries = null;
-let emaSeries = null;
-let smaSeries = null;
+let candleSeries, volumeSeries, emaSeries, smaSeries, areaSeries;
+let currentTF = '1m'; 
+let currentSymbol = 'AAPL';
 let signalSeriesList = [];
 
 let chartReady;
@@ -66,7 +65,7 @@ function bootstrap() {
   renderWatchlist();
   onSelectSymbol(state.symbol); // Initializes header text
   initChart();
-  loadChart();
+  loadChartData(state.symbol, state.tf);
 }
 
 if (document.readyState === 'loading') { window.addEventListener('DOMContentLoaded', bootstrap); } 
@@ -150,19 +149,34 @@ function renderWatchlist(query = '') {
 
 function onSelectSymbol(sym) {
   state.symbol = sym;
+  currentSymbol = sym; // Update currentSymbol
   renderWatchlist(state.searchKeyword); // refresh active state
   
   const hTitle = document.getElementById('headerSymbolName');
   if (hTitle) hTitle.innerHTML = `${CONFIG.names[sym] || sym} (${sym}) <i class="fas fa-chevron-down" style="margin-left:8px; font-size:10px;"></i>`;
   
-  loadChart();
+  loadChartData(currentSymbol, currentTF);
 }
 
 function switchTF(tf, btn) {
-  state.tf = tf;
+  currentTF = tf;
   document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  loadChart();
+  btn.classList.add('active');
+  
+  // Toggle Visibility: If 1m or 5d, show line chart. Else show candlestick.
+  if (tf === '1m' || tf === '5d') {
+    if(candleSeries) candleSeries.applyOptions({ visible: false });
+    if(areaSeries) areaSeries.applyOptions({ visible: true });
+    if(emaSeries) emaSeries.applyOptions({ visible: false });
+    if(smaSeries) smaSeries.applyOptions({ visible: false });
+  } else {
+    if(candleSeries) candleSeries.applyOptions({ visible: true });
+    if(areaSeries) areaSeries.applyOptions({ visible: false });
+    if(emaSeries) emaSeries.applyOptions({ visible: true });
+    if(smaSeries) smaSeries.applyOptions({ visible: true });
+  }
+  
+  loadChartData(currentSymbol, currentTF);
 }
 
 // ── Chart Subsystem ──────────────────────────────────────
@@ -213,7 +227,15 @@ function initChart() {
       scaleMargins: { top: 0.82, bottom: 0 },
     });
 
-    // MAs
+    // Added Area series for "分时"
+    areaSeries = chart.addAreaSeries({
+      topColor: 'rgba(0, 245, 212, 0.4)',
+      bottomColor: 'rgba(0, 245, 212, 0.0)',
+      lineColor: '#00F5D4',
+      lineWidth: 2,
+    });
+    areaSeries.applyOptions({ visible: false });
+
     // MAs per prototype
     emaSeries = chart.addLineSeries({ color: '#fca311', lineWidth: 2, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false });
     smaSeries = chart.addLineSeries({ color: '#7a5af8', lineWidth: 2, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false });
@@ -228,35 +250,32 @@ function initChart() {
   } catch (err) { console.error('Error creating chart:', err); }
 }
 
-async function loadChart() {
+async function loadChartData(symbol, tf) {
   showLoading(true);
   hideError();
 
-  const sym = state.symbol;
-  let tf  = state.tf;
-  
   let fetchTf = tf;
   if (tf === '1mo') fetchTf = '1mo'; // Placeholder for higher resolution scaling if needed
   if (tf === '1wk') fetchTf = '1d';  // We'll aggregate weekly from daily if desired, currently using direct fetching if files exist.
   // Generally, just fetch whatever config requested. The backend has ['1m', '1d'] reliably.
-  if(!['1m','1d','1mo','1wk'].includes(tf)) fetchTf = '1d';
+  if(!['1m','1d','1mo','1wk','5d'].includes(tf)) fetchTf = '1d';
 
   try {
-    let data = await fetchPriceData(sym, fetchTf);
+    let data = await fetchPriceData(symbol, fetchTf);
     if (!data || data.length === 0) {
       if(tf !== '1d') {
           // fallback to 1d
-          data = await fetchPriceData(sym, '1d');
+          data = await fetchPriceData(symbol, '1d');
       }
       if(!data || data.length === 0) {
-          showError(`⚠️ No data found for ${sym}.`);
+          showError(`⚠️ No data found for ${symbol}.`);
           return;
       }
     }
 
-    renderChart(data);
-    updateStats(sym, data);
-    loadSignals(sym, fetchTf);
+    renderChart(data, tf);
+    updateStats(symbol, data);
+    loadSignals(symbol, fetchTf);
 
   } catch (e) {
     showError(`❌ Failed to load: ${e.message}`);
@@ -266,7 +285,11 @@ async function loadChart() {
 }
 
 async function fetchPriceData(symbol, tf) {
-  const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${symbol}_${tf}.csv`;
+  // Mapping for frontend TFs to CSV suffixes
+  let fetchInterval = tf;
+  if(tf === '5d' || tf === '1m') fetchInterval = '1m';
+  
+  const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${symbol}_${fetchInterval}.csv`;
   const res = await fetch(url);
   if (!res.ok) return [];
   const text = await res.text();
@@ -334,20 +357,34 @@ function calculateEMA(data, period) {
     return res;
 }
 
-async function renderChart(data) {
+async function renderChart(data, tf) {
   await chartReady;
 
   if (!candleSeries || !volumeSeries || !chart) return;
-  candleSeries.setData(data);
-  const volumes = data.map(d => ({
+  let processedData = [...data];
+  if (tf === '5d') {
+     processedData = processedData.slice(-5 * 390); // ~5 days
+  } else if (tf === '1m') {
+     processedData = processedData.slice(-390); // ~1 day
+  }
+
+  // Update Series
+  if (tf === '1m' || tf === '5d') {
+    areaSeries.setData(processedData.map(d => ({ time: d.time, value: d.close })));
+    candleSeries.setData([]);
+  } else {
+    candleSeries.setData(processedData);
+    areaSeries.setData([]);
+  }
+  
+  volumeSeries.setData(processedData.map(d => ({
     time: d.time,
     value: d.value,
-    color: d.close >= d.open ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'
-  }));
-  volumeSeries.setData(volumes);
+    color: d.close >= d.open ? 'rgba(0, 245, 212, 0.4)' : 'rgba(255, 159, 159, 0.4)'
+  })));
   
-  const emaData = calculateEMA(data, 20);
-  const smaData = calculateSMA(data, 50);
+  const emaData = calculateEMA(processedData, 20);
+  const smaData = calculateSMA(processedData, 50);
 
   // Set MA data
   if(emaSeries) emaSeries.setData(emaData);

@@ -14,12 +14,12 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # Timeframes to fetch
 # format: (interval, period)
 TIMEFRAMES = [
-    ("1m", "7d"),    # 1 min (Intraday/5-day)
-    ("5m", "60d"),   # 5 min
-    ("1d", "2y"),    # Daily
-    ("1wk", "10y"),  # Weekly
-    ("1mo", "max"),  # Monthly (Max history for Yearly K aggregation)
-    ("3mo", "max")   # Quarterly
+    ("1m", "7d"),    # 分时 / 5日 (Intraday)
+    ("1d", "5y"),    # 日K (Daily)
+    ("1wk", "max"),  # 周K (Weekly)
+    ("1mo", "max"),  # 月K (Monthly)
+    ("3mo", "max"),  # 季K (Quarterly)
+    ("1y", "max")    # 年K (Yearly - will be resampled from 1mo)
 ]
 
 TIINGO_API_KEY = os.environ.get("TIINGO_API_KEY")
@@ -104,12 +104,16 @@ def fetch_data(ticker, interval, period):
         # Avoid rate limits for yfinance
         time.sleep(0.3)
         
+        target_interval = interval
+        if interval in ["3mo", "1y"]:
+            target_interval = "1mo"
+            
         # 1. Primary: yfinance
-        df = yf.download(ticker, period=period, interval=interval, progress=False)
+        df = yf.download(ticker, period=period, interval=target_interval, progress=False)
         
         if df.empty or len(df) < 5:
-            # 2. Secondary: Tiingo (especially for crypto or missing yfinance data)
-            t_df = fetch_via_tiingo(ticker, interval, period)
+            # 2. Secondary: Tiingo
+            t_df = fetch_via_tiingo(ticker, target_interval, period)
             if t_df is not None and not t_df.empty:
                 df = t_df
                 print("    Used Tiingo data source.")
@@ -124,6 +128,16 @@ def fetch_data(ticker, interval, period):
             
         # Clean data
         df = df.dropna(subset=['Open', 'High', 'Low', 'Close'])
+
+        # Resample for 3mo and 1y if fetched as 1mo
+        if interval == "3mo":
+            df = df.resample('3ME').agg({
+                'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
+            }).dropna()
+        elif interval == "1y":
+            df = df.resample('Y').agg({
+                'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
+            }).dropna()
         
         # Save path: data/{ticker}_{interval}.csv
         df.to_csv(filename)
