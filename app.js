@@ -122,7 +122,8 @@ function onSearchInput(val) {
 
 function onSelectSymbol(sym) {
   state.symbol = sym;
-  document.getElementById('symbolSearch').value = sym;
+  const input = document.getElementById('symbolSearch');
+  if (input) input.value = sym;
   showSearchResults(false);
   loadChart();
 }
@@ -151,7 +152,7 @@ function switchTab(tab) {
     setTimeout(() => {
       if (chart) {
         const container = document.getElementById('chartContainer');
-        chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+        if (container) chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
       }
     }, 50);
   }
@@ -160,9 +161,13 @@ function switchTab(tab) {
 // ── Chart ────────────────────────────────────────────────
 function initChart() {
   const container = document.getElementById('chartContainer');
+  if (!container) {
+    console.error('❌ Missing chartContainer');
+    return;
+  }
   chart = LightweightCharts.createChart(container, {
-    width:  container.clientWidth,
-    height: container.clientHeight,
+    width:  container.clientWidth || 800,
+    height: container.clientHeight || 500,
     layout: { 
       background: { color: 'transparent' }, 
       textColor: '#8b949e',
@@ -191,7 +196,9 @@ function initChart() {
   chart.priceScale('v-scale').applyOptions({ visible: false });
 
   window.addEventListener('resize', () => {
-    chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+    if (chart && container) {
+      chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+    }
   });
 }
 
@@ -241,6 +248,7 @@ async function fetchPriceData(symbol, tf) {
 }
 
 function aggregateToYearly(monthlyData) {
+  if (!monthlyData.length) return [];
   const years = {};
   monthlyData.forEach(d => {
     const year = new Date(d.time * 1000).getUTCFullYear();
@@ -257,6 +265,7 @@ function aggregateToYearly(monthlyData) {
 }
 
 function parseCSV(text) {
+  if (!text || !text.trim()) return [];
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
   const headers = lines[0].toLowerCase().split(',');
@@ -271,7 +280,16 @@ function parseCSV(text) {
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(',');
     if (cols.length < 5) continue;
-    const ts = Math.floor(new Date(cols[dtIdx].replace(' ','T') + (cols[dtIdx].includes('+') || cols[dtIdx].includes('Z') ? '' : 'Z')).getTime() / 1000);
+    
+    let timeStr = cols[dtIdx];
+    if (!timeStr) continue;
+    
+    // Defensive date parsing
+    let ts;
+    try {
+      ts = Math.floor(new Date(timeStr.replace(' ','T') + (timeStr.includes('+') || timeStr.includes('Z') ? '' : 'Z')).getTime() / 1000);
+    } catch(err) { continue; }
+    
     if (isNaN(ts)) continue;
     rows.push({
       time: ts,
@@ -286,6 +304,10 @@ function parseCSV(text) {
 }
 
 function renderChart(data) {
+  if (!candleSeries || !volumeSeries || !chart) {
+    console.error('❌ Chart not initialized properly');
+    return;
+  }
   candleSeries.setData(data);
   const volumes = data.map(d => ({
     time: d.time,
@@ -297,6 +319,7 @@ function renderChart(data) {
 }
 
 async function loadSignals(symbol, tf) {
+  if (!chart || !candleSeries) return;
   signalSeriesList.forEach(s => chart.removeSeries(s));
   signalSeriesList = [];
 
@@ -325,7 +348,8 @@ async function loadSignals(symbol, tf) {
 
 function parseDt(str) {
   if (!str) return null;
-  return Math.floor(new Date(str.replace(' ','T') + 'Z').getTime() / 1000);
+  const d = new Date(str.replace(' ','T') + 'Z');
+  return isNaN(d.getTime()) ? null : Math.floor(d.getTime() / 1000);
 }
 function uniqueByTime(arr) {
   const seen = new Set();
@@ -343,10 +367,10 @@ function updateStats(sym, data) {
   const chg = (((last.close - first.open) / first.open) * 100).toFixed(2);
   const isUp = last.close >= first.open;
 
-  setStat('qPrice', last.close.toFixed(last.close < 1 ? 4 : 2), isUp ? 'up' : 'down');
+  setStat('qPrice', (last.close || 0).toFixed(last.close < 1 ? 4 : 2), isUp ? 'up' : 'down');
   setStat('qChg', `${isUp?'+':''}${chg}%`, isUp ? 'up' : 'down');
-  setStat('qHigh', Math.max(...data.map(d=>d.high)).toFixed(2));
-  setStat('qLow',  Math.min(...data.map(d=>d.low)).toFixed(2));
+  setStat('qHigh', (Math.max(...data.map(d=>d.high||0)) || 0).toFixed(2));
+  setStat('qLow',  (Math.min(...data.map(d=>d.low||0)) || 0).toFixed(2));
   setStat('qVol',  formatVolume(data.reduce((a,b)=>a+(b.value||0),0)));
 }
 
@@ -363,6 +387,7 @@ function formatVolume(v) {
 async function loadNews(dateStr) {
   const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/news/${dateStr}.md`;
   const el = document.getElementById('newsContent');
+  if (!el) return;
   el.innerHTML = '<div style="color:var(--text-muted); padding:40px; text-align:center;">读取中...</div>';
   try {
     const res = await fetch(url);
@@ -376,6 +401,7 @@ async function loadNews(dateStr) {
 }
 
 function renderSimpleMarkdown(md) {
+  if (!md) return '';
   return md.replace(/^# (.*$)/gm, '<h1 style="margin-bottom:20px">$1</h1>')
            .replace(/^## (.*$)/gm, '<h2 style="color:var(--accent-blue); margin:30px 0 15px">$1</h2>')
            .replace(/^### (.*$)/gm, '<h3 style="margin:20px 0 10px">$1</h3>')
