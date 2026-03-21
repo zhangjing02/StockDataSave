@@ -255,10 +255,13 @@ async function loadChartData(symbol, tf) {
   hideError();
 
   let fetchTf = tf;
-  if (tf === '1mo') fetchTf = '1mo'; // Placeholder for higher resolution scaling if needed
-  if (tf === '1wk') fetchTf = '1d';  // We'll aggregate weekly from daily if desired, currently using direct fetching if files exist.
-  // Generally, just fetch whatever config requested. The backend has ['1m', '1d'] reliably.
-  if(!['1m','1d','1mo','1wk','5d'].includes(tf)) fetchTf = '1d';
+  // Mapping for frontend TFs to CSV suffixes
+  if (tf === '5d' || tf === '1m') fetchTf = '1m';
+  else if (tf === '1wk') fetchTf = '1wk';
+  else if (tf === '3mo') fetchTf = '3mo';
+  else if (tf === '1y') fetchTf = '1y';
+  else if (tf === '1mo') fetchTf = '1mo';
+  else fetchTf = '1d';
 
   try {
     let data = await fetchPriceData(symbol, fetchTf);
