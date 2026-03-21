@@ -37,6 +37,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Fetch stock data
+        env:
+          TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
         run: python us_data_fetcher.py
 
       - name: Run CZSC Analysis

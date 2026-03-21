@@ -7,6 +7,7 @@ try:
 except ImportError:
     from czsc.analyze import CZSC as CzscIter
     from czsc.objects import RawBar
+from datetime import datetime
 
 # Configuration
 DATA_DIR = "data"
@@ -78,10 +79,42 @@ def analyze_ticker(csv_path):
             bi_list.append({
                 "start_dt": bi.start_dt.strftime('%Y-%m-%d %H:%M:%S'),
                 "end_dt": bi.end_dt.strftime('%Y-%m-%d %H:%M:%S'),
-                "direction": str(bi.direction), # d/g
-                "high": bi.high,
-                "low": bi.low
+                "direction": "up" if str(bi.direction).lower() in ['up', '1', 'g'] else "down",
+                "high": float(bi.high),
+                "low": float(bi.low)
             })
+
+        # 提取线段 (Duan)
+        xd_list = []
+        try:
+            source_xd = getattr(ci, 'xd_list', [])
+            for xd in source_xd:
+                xd_list.append({
+                    "start_dt": xd.start_dt.strftime('%Y-%m-%d %H:%M:%S'),
+                    "end_dt": xd.end_dt.strftime('%Y-%m-%d %H:%M:%S'),
+                    "direction": "up" if str(xd.direction).lower() in ['up', '1', 'g'] else "down",
+                    "high": float(xd.high),
+                    "low": float(xd.low)
+                })
+        except: pass
+
+        # 提取中枢 (ZhongShu)
+        zs_list = []
+        try:
+            # 提取笔中枢
+            source_zs = getattr(ci, 'bi_zs_list', getattr(ci, 'zs_list', []))
+            for zs in source_zs:
+                zg = getattr(zs, 'zg', 0)
+                zd = getattr(zs, 'zd', 0)
+                zs_list.append({
+                    "start_dt": zs.s_dt.strftime('%Y-%m-%d %H:%M:%S') if hasattr(zs, 's_dt') else "",
+                    "end_dt": zs.e_dt.strftime('%Y-%m-%d %H:%M:%S') if (hasattr(zs, 'e_dt') and zs.e_dt) else "Running",
+                    "zg": float(zg) if zg is not None else 0.0,
+                    "zd": float(zd) if zd is not None else 0.0,
+                    "gg": float(getattr(zs, 'gg', zg)) if getattr(zs, 'gg', zg) is not None else 0.0,
+                    "dd": float(getattr(zs, 'dd', zd)) if getattr(zs, 'dd', zd) is not None else 0.0
+                })
+        except: pass
 
         # Save Results
         num_fx = len(fx_list)
@@ -92,7 +125,9 @@ def analyze_ticker(csv_path):
             "interval": interval,
             "last_update": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             "fractals": fx_list[max(0, num_fx - 150):], 
-            "bi": bi_list[max(0, num_bi - 80):]
+            "bi": bi_list[max(0, num_bi - 80):],
+            "segments": xd_list[max(0, len(xd_list) - 50):],
+            "zhongshu": zs_list[max(0, len(zs_list) - 20):]
         }
 
         output_file = os.path.join(SIGNALS_DIR, f"{symbol}_{interval}_signals.json")
@@ -102,7 +137,6 @@ def analyze_ticker(csv_path):
     except Exception as e:
         print(f"  Error analyzing {filename}: {e}")
 
-from datetime import datetime
 
 def main():
     csv_files = glob.glob(os.path.join(DATA_DIR, "*.csv"))

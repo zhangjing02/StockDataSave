@@ -1,116 +1,123 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CZSC 美股量化分析平台</title>
-  <meta name="description" content="基于缠中说禅理论的美股/加密货币高精度K线分析平台" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>CZSC 量化平台 · Premium</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Lightweight Charts -->
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
 
-  <!-- Header -->
-  <header class="header">
-    <div class="header-left">
-      <div class="logo">📈 CZSC · 美股量化</div>
-      <div class="market-status">
-        <span class="dot" id="marketDot"></span>
-        <span id="marketStatusText">加载中...</span>
+  <!-- Sidebar: Search & Strategy -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">ALPHA CZSC</div>
+    </div>
+    
+    <div class="sidebar-search">
+      <input type="text" id="symbolSearch" class="search-input" placeholder="输入代码或名称..." onfocus="showSearchResults(true)" oninput="onSearchInput(this.value)">
+      
+      <!-- Search Category Tabs -->
+      <div class="search-tabs">
+        <button id="stab_stocks" class="s-tab active" onclick="setSearchCategory('stocks')">股票</button>
+        <button id="stab_etfs" class="s-tab" onclick="setSearchCategory('etfs')">ETF</button>
+        <button id="stab_crypto" class="s-tab" onclick="setSearchCategory('crypto')">虚拟币</button>
+      </div>
+
+      <div id="searchDropdown" class="search-dropdown" style="display:none;">
+        <!-- Search Results here -->
       </div>
     </div>
-    <nav class="header-right">
-      <button class="nav-btn active" id="btnChart" onclick="switchTab('Chart')">K 线图</button>
-      <button class="nav-btn" id="btnNews" onclick="switchTab('News')">新闻早报</button>
+
+    <!-- Future Strategy Buttons Area -->
+    <div class="sidebar-nav">
+      <div class="nav-label">策略分析 (Strategy)</div>
+      <div class="strategy-placeholder">
+        <div class="strategy-item-empty">等待集成策略...</div>
+      </div>
     </nav>
-  </header>
+  </aside>
 
-  <!-- Main Layout -->
-  <main class="main-layout">
-
-    <!-- Control Bar (replaces sidebar) -->
-    <div class="control-bar">
-      <!-- Category Tabs -->
-      <div class="cat-tabs">
-        <button class="cat-btn active" id="catStock" onclick="switchCategory('stock')">📊 股票</button>
-        <button class="cat-btn" id="catEtf" onclick="switchCategory('etf')">🏛️ ETF</button>
-        <button class="cat-btn" id="catCrypto" onclick="switchCategory('crypto')">₿ 加密币</button>
-      </div>
-
-      <!-- Symbol Selector -->
-      <div class="select-wrap">
-        <select id="symbolSelect" onchange="onSymbolChange(this.value)">
-          <option value="">选择标的...</option>
-        </select>
-      </div>
-
-      <!-- Timeframe -->
-      <div class="tf-group">
-        <button class="tf-btn active" id="tf5m" onclick="switchTF('5m', this)">5m</button>
-        <button class="tf-btn" id="tf1d" onclick="switchTF('1d', this)">日K</button>
-        <button class="tf-btn" id="tf1wk" onclick="switchTF('1wk', this)">周K</button>
-        <button class="tf-btn" id="tf1mo" onclick="switchTF('1mo', this)">月K</button>
-        <button class="tf-btn" id="tf3mo" onclick="switchTF('3mo', this)">季K</button>
-      </div>
-
-      <!-- Quick Stats Bar -->
-      <div class="quick-stats">
-        <div class="stat-chip">
-          <span class="stat-label">现价</span>
-          <span class="stat-val" id="qPrice">—</span>
+  <!-- Main View -->
+  <main class="main-wrap">
+    
+    <!-- Top Bar: Actions & Market Status -->
+    <header class="top-tools">
+      <div class="search-nav">
+        <!-- Tab Switches: Chart vs News -->
+        <div class="tf-row">
+          <button id="btnChart" class="tf-btn active" onclick="switchTab('Chart')">图表</button>
+          <button id="btnNews" class="tf-btn" onclick="switchTab('News')">简报</button>
         </div>
-        <div class="stat-chip">
-          <span class="stat-label">涨跌幅</span>
-          <span class="stat-val" id="qChg">—</span>
-        </div>
-        <div class="stat-chip">
-          <span class="stat-label">最高</span>
-          <span class="stat-val" id="qHigh">—</span>
-        </div>
-        <div class="stat-chip">
-          <span class="stat-label">最低</span>
-          <span class="stat-val" id="qLow">—</span>
-        </div>
-        <div class="stat-chip">
-          <span class="stat-label">成交量</span>
-          <span class="stat-val" id="qVol">—</span>
-        </div>
-        <div class="stat-chip">
-          <span class="stat-label">条数</span>
-          <span class="stat-val" id="qCount">—</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Content Area -->
-    <div class="content-area">
-
-      <!-- Chart Tab -->
-      <div id="tabChart" class="tab-panel active">
-        <div id="chartContainer"></div>
-        <div class="loading-overlay" id="loadingOverlay">
-          <div class="spinner"></div>
-          <div class="loading-text">正在加载行情数据...</div>
-        </div>
-        <div class="error-box" id="errorBox" style="display:none;"></div>
-      </div>
-
-      <!-- News Tab -->
-      <div id="tabNews" class="tab-panel">
-        <div class="news-header">
-          <h2>📰 美股新闻早报</h2>
-          <div class="news-date-selector">
-            <label>选择日期：</label>
-            <input type="date" id="newsDateInput" onchange="loadNews(this.value)" />
-          </div>
-        </div>
-        <div id="newsContent" class="news-content">
-          <div class="news-loading">正在加载新闻...</div>
+        
+        <div class="tf-row">
+          <button id="tf1m" class="tf-btn" onclick="switchTF('1m', this)">分时</button>
+          <button id="tf5d" class="tf-btn" onclick="switchTF('5d', this)">5日</button>
+          <button id="tf1d" class="tf-btn active" onclick="switchTF('1d', this)">日K</button>
+          <button id="tf1wk" class="tf-btn" onclick="switchTF('1wk', this)">周K</button>
+          <button id="tf1mo" class="tf-btn" onclick="switchTF('1mo', this)">月K</button>
+          <button id="tf3mo" class="tf-btn" onclick="switchTF('3mo', this)">季K</button>
+          <button id="tf1y" class="tf-btn" onclick="switchTF('1y', this)">年K</button>
         </div>
       </div>
 
-    </div>
+      <div class="market-status">
+        <span id="marketStatusText" style="font-size: 12px; color: var(--text-dim); margin-right: 8px;">加载中...</span>
+        <div id="marketDot" class="dot"></div>
+      </div>
+    </header>
+
+    <!-- Dashboard: Live Stats (Glassmorphism) -->
+    <section class="market-info" id="statsBar">
+      <div class="info-card">
+        <span class="i-label">最新成交价</span>
+        <div id="qPrice" class="i-val">--</div>
+      </div>
+      <div class="info-card">
+        <span class="i-label">涨跌幅 (区间)</span>
+        <div id="qChg" class="i-val">--</div>
+      </div>
+      <div class="info-card">
+        <span class="i-label">最高</span>
+        <div id="qHigh" class="i-val">--</div>
+      </div>
+      <div class="info-card">
+        <span class="i-label">最低</span>
+        <div id="qLow" class="i-val">--</div>
+      </div>
+      <div class="info-card">
+        <span class="i-label">周期成交量</span>
+        <div id="qVol" class="i-val">--</div>
+      </div>
+    </section>
+
+    <!-- Chart Container -->
+    <section id="tabChart" class="chart-view">
+      <div id="errorBox" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); background:rgba(231,76,60,0.2); border:1px solid #e74c3c; color:white; padding:12px 24px; border-radius:8px; z-index:100; backdrop-filter: blur(10px);"></div>
+      <div id="chartContainer"></div>
+      
+      <!-- Loading Overlay -->
+      <div id="loadingOverlay" class="loading-overlay">
+        <div class="loader-glow"></div>
+        <p style="font-size: 12px; color: var(--text-dim); letter-spacing: 1px;">SYNCING MARKET DATA...</p>
+      </div>
+    </section>
+
+    <!-- News Pane (Hidden by default) -->
+    <section id="tabNews" class="news-pane" style="display:none;">
+      <div class="news-header" style="margin-bottom: 30px; display: flex; align-items: center; justify-content: space-between;">
+        <h2 style="font-weight: 800; font-size: 24px;">每日复盘简报</h2>
+        <input type="date" id="newsDateInput" class="search-input" style="width: 140px;" onchange="loadNews(this.value)">
+      </div>
+      <div id="newsContent"></div>
+    </section>
+
   </main>
 
   <script src="app.js"></script>

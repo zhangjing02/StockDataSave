@@ -4,6 +4,7 @@ import os
 import json
 import time
 from datetime import datetime, timedelta
+import requests
 
 # Configuration
 WATCHLIST_PATH = "watch_list.json"
@@ -13,12 +14,15 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # Timeframes to fetch
 # format: (interval, period)
 TIMEFRAMES = [
-    ("5m", "60d"),   # 5 min (max 60d for yfinance)
-    ("1d", "2y"),    # Daily (2 years as requested)
-    ("1wk", "2y"),   # Weekly
-    ("1mo", "2y"),   # Monthly
-    ("3mo", "5y")    # Quarterly
+    ("1m", "7d"),    # 1 min (Intraday/5-day)
+    ("5m", "60d"),   # 5 min
+    ("1d", "2y"),    # Daily
+    ("1wk", "10y"),  # Weekly
+    ("1mo", "max"),  # Monthly (Max history for Yearly K aggregation)
+    ("3mo", "max")   # Quarterly
 ]
+
+TIINGO_API_KEY = os.environ.get("TIINGO_API_KEY")
 
 def load_watchlist():
     try:
@@ -39,28 +43,89 @@ def load_watchlist():
         print(f"Error loading watchlist: {e}")
         return ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "TSLA"]
 
+def fetch_via_tiingo(ticker, interval, period):
+    """Fallback / Complementary fetcher via Tiingo API"""
+    if not TIINGO_API_KEY:
+        return None
+    
+    print(f"  Attempting Tiingo for {ticker} ({interval})...")
+    try:
+        # Tiingo resampleFreq: 1min, 5min, daily, etc.
+        freq_map = {"1m": "1min", "5m": "5min", "1d": "daily"}
+        if interval not in freq_map:
+            return None
+        
+        # Crypto symbols in Tiingo: btcusd instead of BTC-USD
+        is_crypto = "-" in ticker
+        tiingo_ticker = ticker.replace("-", "").lower() if is_crypto else ticker.lower()
+        
+        endpoint = "crypto" if is_crypto else "iex"
+        url = f"https://api.tiingo.com/tiingo/{endpoint}/{tiingo_ticker}/prices"
+        
+        # Calculate startDate based on period
+        days = 2 if period == "5d" else 60 if period == "60d" else 730
+        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        
+        params = {
+            "token": TIINGO_API_KEY,
+            "startDate": start_date,
+            "resampleFreq": freq_map[interval],
+            "format": "json"
+        }
+        
+        response = requests.get(url, params=params)
+        if response.status_code != 200:
+            print(f"    Tiingo API Error: {response.status_code}")
+            return None
+            
+        data = response.json()
+        if not data:
+            return None
+            
+        # Convert to DataFrame
+        df = pd.DataFrame(data)
+        # Tiingo fields: date, open, high, low, close, volume...
+        df['date'] = pd.to_datetime(df['date'])
+        df.set_index('date', inplace=True)
+        # Rename columns to match yfinance
+        col_map = {c: c.capitalize() for c in df.columns}
+        df.rename(columns=col_map, inplace=True)
+        
+        return df
+    except Exception as e:
+        print(f"    Tiingo error: {e}")
+        return None
+
 def fetch_data(ticker, interval, period):
     print(f"Fetching {ticker} ({interval})...")
+    filename = os.path.join(DATA_DIR, f"{ticker}_{interval}.csv")
+    
     try:
-        # Avoid rate limits
-        time.sleep(0.5)
+        # Avoid rate limits for yfinance
+        time.sleep(0.3)
         
-        # Download data
+        # 1. Primary: yfinance
         df = yf.download(ticker, period=period, interval=interval, progress=False)
         
-        if df.empty:
-            print(f"  Empty data for {ticker}")
-            return False
+        if df.empty or len(df) < 5:
+            # 2. Secondary: Tiingo (especially for crypto or missing yfinance data)
+            t_df = fetch_via_tiingo(ticker, interval, period)
+            if t_df is not None and not t_df.empty:
+                df = t_df
+                print("    Used Tiingo data source.")
+            else:
+                if df.empty:
+                    print(f"  Empty data for {ticker}")
+                    return False
             
-        # Standardize columns (yfinance sometimes returns MultiIndex)
+        # Standardize columns
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
             
-        # Clean data: drop rows with NaN in core columns
+        # Clean data
         df = df.dropna(subset=['Open', 'High', 'Low', 'Close'])
         
         # Save path: data/{ticker}_{interval}.csv
-        filename = os.path.join(DATA_DIR, f"{ticker}_{interval}.csv")
         df.to_csv(filename)
         print(f"  Saved {len(df)} rows to {filename}")
         return True

@@ -1,12 +1,12 @@
 // ============================================================
-//  CZSC 美股量化平台 - app.js (重构版 · 下拉选择器)
+//  CZSC 美股量化平台 - app.js (Search Tabs Edition)
 // ============================================================
 
 const CONFIG = {
   RAW_BASE: 'https://raw.githubusercontent.com/zhangjing02/StockDataSave/main',
   DATA_PATH: 'data',
-  MONTHS_BACK: 3,
 
+  // Categorized Pools
   stocks: [
     'AAPL','MSFT','NVDA','TSLA','META','AMZN','GOOG','AMD',
     'PLTR','SMCI','ARM','ORCL','ASML','TSM','AVGO','MU',
@@ -22,7 +22,6 @@ const CONFIG = {
     'DOGE-USD','ADA-USD','AVAX-USD','SHIB-USD','DOT-USD'
   ],
 
-  // Friendly display names
   names: {
     'AAPL':'Apple Inc.', 'MSFT':'Microsoft', 'NVDA':'NVIDIA',
     'TSLA':'Tesla', 'META':'Meta Platforms', 'AMZN':'Amazon',
@@ -47,72 +46,87 @@ const CONFIG = {
 
 // ── State ────────────────────────────────────────────────
 let state = {
-  category: 'stock',   // 'stock' | 'etf' | 'crypto'
   symbol:   'AAPL',
-  tf:       '5m',
+  tf:       '1d',
   activeTab:'Chart',
+  searchKeyword: '',
+  searchCategory: 'stocks' // stocks, etfs, crypto
 };
 
 let chart = null;
 let candleSeries = null;
 let volumeSeries = null;
+let signalSeriesList = [];
 
 // ── Init ─────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  buildSelect('stock');
   updateMarketStatus();
   setInterval(updateMarketStatus, 60000);
-
-  // Init chart
   initChart();
   loadChart();
 
-  // Default news date = today
-  const today = getTodayStr();
   const dateInput = document.getElementById('newsDateInput');
-  if (dateInput) dateInput.value = today;
+  if (dateInput) dateInput.value = getTodayStr();
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.sidebar-search')) {
+      showSearchResults(false);
+    }
+  });
 });
 
-// ── Category Switch ──────────────────────────────────────
-function switchCategory(cat) {
-  state.category = cat;
-  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-  const btn = document.getElementById(
-    cat === 'stock' ? 'catStock' : cat === 'etf' ? 'catEtf' : 'catCrypto'
-  );
-  if (btn) {
-    btn.classList.add('active');
-    btn.className = btn.className.replace(/ crypto| etf/g, '');
-    if (cat === 'crypto') btn.classList.add('crypto');
-    if (cat === 'etf')    btn.classList.add('etf');
-  }
-  buildSelect(cat);
-}
-
-function buildSelect(cat) {
-  const sel = document.getElementById('symbolSelect');
-  const pool = CONFIG[cat === 'stock' ? 'stocks' : cat === 'etf' ? 'etfs' : 'crypto'];
-  sel.innerHTML = '';
-  pool.forEach(sym => {
-    const opt = document.createElement('option');
-    opt.value = sym;
-    opt.textContent = `${sym}  ${CONFIG.names[sym] ? '· ' + CONFIG.names[sym] : ''}`;
-    sel.appendChild(opt);
+// ── Search Logic ─────────────────────────────────────────
+function setSearchCategory(cat) {
+  state.searchCategory = cat;
+  document.querySelectorAll('.s-tab').forEach(t => {
+    t.classList.toggle('active', t.id === `stab_${cat}`);
   });
-  // Auto-select first item in category, or keep previous if still valid
-  const keep = pool.includes(state.symbol) ? state.symbol : pool[0];
-  sel.value = keep;
-  state.symbol = keep;
-  loadChart();
+  onSearchInput(state.searchKeyword);
 }
 
-function onSymbolChange(sym) {
-  if (!sym) return;
+function showSearchResults(show) {
+  const dd = document.getElementById('searchDropdown');
+  if (dd) dd.style.display = show ? 'block' : 'none';
+  if (show) onSearchInput(state.searchKeyword);
+}
+
+function onSearchInput(val) {
+  state.searchKeyword = val.toLowerCase();
+  const dd = document.getElementById('searchDropdown');
+  dd.innerHTML = '';
+
+  const pool = CONFIG[state.searchCategory] || [];
+  const filtered = pool.filter(s => {
+    const name = CONFIG.names[s] || '';
+    return s.toLowerCase().includes(state.searchKeyword) || 
+           name.toLowerCase().includes(state.searchKeyword);
+  });
+
+  if (filtered.length === 0) {
+    dd.innerHTML = '<div style="padding:10px; font-size:12px; color:var(--text-muted)">无匹配结果</div>';
+    return;
+  }
+
+  filtered.forEach(sym => {
+    const item = document.createElement('div');
+    item.className = 'symbol-item';
+    item.onclick = () => onSelectSymbol(sym);
+    item.innerHTML = `
+      <span class="s-name">${sym}</span>
+      <span class="s-sub">${CONFIG.names[sym] || ''}</span>
+    `;
+    dd.appendChild(item);
+  });
+}
+
+function onSelectSymbol(sym) {
   state.symbol = sym;
+  document.getElementById('symbolSearch').value = sym;
+  showSearchResults(false);
   loadChart();
 }
 
-// ── Timeframe ────────────────────────────────────────────
+// ── Timeframe & Tab ──────────────────────────────────────
 function switchTF(tf, btn) {
   state.tf = tf;
   document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
@@ -120,76 +134,98 @@ function switchTF(tf, btn) {
   loadChart();
 }
 
-// ── Tab Switch ───────────────────────────────────────────
 function switchTab(tab) {
   state.activeTab = tab;
   ['Chart', 'News'].forEach(t => {
-    document.getElementById('tab' + t)?.classList.toggle('active', t === tab);
-    document.getElementById('btn' + t)?.classList.toggle('active', t === tab);
+    const pane = document.getElementById('tab' + t);
+    const btn  = document.getElementById('btn' + t);
+    if (pane) pane.style.display = (t === tab) ? 'block' : 'none';
+    if (btn) btn.classList.toggle('active', t === tab);
   });
+  
   if (tab === 'News') {
     const input = document.getElementById('newsDateInput');
-    if (input) loadNews(input.value || getTodayStr());
+    loadNews(input?.value || getTodayStr());
+  } else {
+    setTimeout(() => {
+      if (chart) {
+        const container = document.getElementById('chartContainer');
+        chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+      }
+    }, 50);
   }
 }
 
-// ── Chart Init ───────────────────────────────────────────
+// ── Chart ────────────────────────────────────────────────
 function initChart() {
   const container = document.getElementById('chartContainer');
   chart = LightweightCharts.createChart(container, {
     width:  container.clientWidth,
     height: container.clientHeight,
-    layout: { background:{color:'#0d1117'}, textColor:'#8b949e' },
+    layout: { 
+      background: { color: 'transparent' }, 
+      textColor: '#8b949e',
+      fontFamily: 'Inter'
+    },
     grid: {
-      vertLines: { color:'rgba(33,38,45,0.5)' },
-      horzLines: { color:'rgba(33,38,45,0.5)' }
+      vertLines: { color: 'rgba(33, 38, 45, 0.2)' },
+      horzLines: { color: 'rgba(33, 38, 45, 0.2)' }
     },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: { borderColor:'#21262d' },
-    timeScale: { borderColor:'#21262d', timeVisible:true, secondsVisible:false }
+    rightPriceScale: { borderColor: '#30363d', scaleMargins: { top: 0.1, bottom: 0.2 } },
+    timeScale: { borderColor: '#30363d', timeVisible: true, secondsVisible: false }
   });
 
   candleSeries = chart.addCandlestickSeries({
-    upColor:'#3fb950', wickUpColor:'#3fb950',
-    downColor:'#f85149', wickDownColor:'#f85149',
+    upColor: '#26a69a', wickUpColor: '#26a69a',
+    downColor: '#ef5350', wickDownColor: '#ef5350',
     borderVisible: false
   });
 
   volumeSeries = chart.addHistogramSeries({
-    priceFormat: { type:'volume' },
-    priceScaleId: 'vol',
-    scaleMargins: { top:0.7, bottom:0 }
+    priceFormat: { type: 'volume' },
+    priceScaleId: 'v-scale',
+    scaleMargins: { top: 0.8, bottom: 0 }
   });
+  chart.priceScale('v-scale').applyOptions({ visible: false });
 
   window.addEventListener('resize', () => {
     chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
   });
 }
 
-// ── Data Loading ─────────────────────────────────────────
 async function loadChart() {
   showLoading(true);
   hideError();
 
   const sym = state.symbol;
-  const tf  = state.tf;
+  let tf  = state.tf;
+  
+  let fetchTf = tf;
+  if (tf === '5d') fetchTf = '1m'; 
+  if (tf === '1y') fetchTf = '1mo';
 
   try {
-    // 1. Load Price Data
-    const data = await fetchPriceData(sym, tf);
+    let data = await fetchPriceData(sym, fetchTf);
     if (!data || data.length === 0) {
-      showError(`⚠️ 未找到 ${sym} 的行情数据（${tf}）`);
+      showError(`⚠️ 暂无 ${sym} [${tf}] 的数据支撑。`);
       return;
     }
+
+    if (tf === '5d') {
+      const now = Math.floor(Date.now() / 1000);
+      const fiveDaysAgo = now - (5 * 24 * 3600);
+      data = data.filter(d => d.time >= fiveDaysAgo);
+    } else if (tf === '1y') {
+      data = aggregateToYearly(data);
+    }
+
     renderChart(data);
     updateStats(sym, data);
-
-    // 2. Load and Render CZSC Signals (New)
-    loadSignals(sym, tf);
+    loadSignals(sym, fetchTf);
 
   } catch (e) {
-    console.error(e);
-    showError(`❌ 加载失败：${e.message}`);
+    showError(`❌ 加载失败: ${e.message}`);
   } finally {
     showLoading(false);
   }
@@ -197,21 +233,69 @@ async function loadChart() {
 
 async function fetchPriceData(symbol, tf) {
   const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${symbol}_${tf}.csv`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const text = await res.text();
-    return parseCSV(text);
-  } catch (e) {
-    console.error(`Fetch error: ${url}`, e);
-    return [];
-  }
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const text = await res.text();
+  return parseCSV(text);
 }
 
-// New: Load and render CZSC signals (bi)
-let signalSeriesList = [];
+function aggregateToYearly(monthlyData) {
+  const years = {};
+  monthlyData.forEach(d => {
+    const year = new Date(d.time * 1000).getUTCFullYear();
+    if (!years[year]) {
+      years[year] = { time: Math.floor(Date.UTC(year, 0, 1)/1000), open: d.open, high: d.high, low: d.low, close: d.close, value: d.value };
+    } else {
+      years[year].high = Math.max(years[year].high, d.high);
+      years[year].low = Math.min(years[year].low, d.low);
+      years[year].close = d.close;
+      years[year].value += (d.value || 0);
+    }
+  });
+  return Object.values(years).sort((a,b) => a.time - b.time);
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = lines[0].toLowerCase().split(',');
+  const dtIdx = headers.indexOf('dt') !== -1 ? headers.indexOf('dt') : headers.indexOf('date');
+  const oIdx  = headers.indexOf('open');
+  const hIdx  = headers.indexOf('high');
+  const lIdx  = headers.indexOf('low');
+  const cIdx  = headers.indexOf('close');
+  const vIdx  = headers.indexOf('vol') !== -1 ? headers.indexOf('vol') : headers.indexOf('volume');
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(',');
+    if (cols.length < 5) continue;
+    const ts = Math.floor(new Date(cols[dtIdx].replace(' ','T') + (cols[dtIdx].includes('+') || cols[dtIdx].includes('Z') ? '' : 'Z')).getTime() / 1000);
+    if (isNaN(ts)) continue;
+    rows.push({
+      time: ts,
+      open: parseFloat(cols[oIdx]),
+      high: parseFloat(cols[hIdx]),
+      low:  parseFloat(cols[lIdx]),
+      close:parseFloat(cols[cIdx]),
+      value:vIdx >= 0 ? parseFloat(cols[vIdx]) : 0
+    });
+  }
+  return rows.sort((a,b) => a.time - b.time);
+}
+
+function renderChart(data) {
+  candleSeries.setData(data);
+  const volumes = data.map(d => ({
+    time: d.time,
+    value: d.value,
+    color: d.close >= d.open ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)'
+  }));
+  volumeSeries.setData(volumes);
+  chart.timeScale().fitContent();
+}
+
 async function loadSignals(symbol, tf) {
-  // Clear old signals
   signalSeriesList.forEach(s => chart.removeSeries(s));
   signalSeriesList = [];
 
@@ -219,233 +303,96 @@ async function loadSignals(symbol, tf) {
   try {
     const res = await fetch(url);
     if (!res.ok) return;
-    const signals = await res.json();
-    if (!signals.bi || signals.bi.length === 0) return;
-
-    // Create a new series for "Bi" (Strokes)
-    const biSeries = chart.addLineSeries({
-      color: '#ff9800',
-      lineWidth: 2,
-      lineStyle: LightweightCharts.LineStyle.Solid,
-      crosshairMarkerVisible: false,
-      lastValueVisible: false,
-      priceLineVisible: false
-    });
-    signalSeriesList.push(biSeries);
-
-    const biPoints = [];
-    signals.bi.forEach(b => {
-      // Parse dates: "2024-03-20 09:30:00"
-      const startTs = Math.floor(new Date(b.start_dt.replace(' ','T') + 'Z').getTime() / 1000);
-      const endTs   = Math.floor(new Date(b.end_dt.replace(' ','T') + 'Z').getTime() / 1000);
-      
-      if (!isNaN(startTs) && !isNaN(endTs)) {
-        biPoints.push({ time: startTs, value: b.direction === '1' || b.direction === 'up' ? b.low : b.high });
-        biPoints.push({ time: endTs,   value: b.direction === '1' || b.direction === 'up' ? b.high : b.low });
-      }
-    });
-
-    // Deduplicate points by time (crucial for LightweightCharts)
-    const uniqueBi = [];
-    const seenTimes = new Set();
-    biPoints.sort((a,b) => a.time - b.time); // Pre-sort
-    biPoints.forEach(p => {
-      if (!seenTimes.has(p.time)) {
-        uniqueBi.push(p);
-        seenTimes.add(p.time);
-      }
-    });
-    biSeries.setData(uniqueBi);
-
-  } catch (e) {
-    console.warn("Signals load failed or not available:", e);
-  }
-}
-
-
-function parseCSV(text) {
-  const lines = text.trim().split('\n');
-  if (lines.length < 2) return [];
-  const headers = lines[0].toLowerCase().split(',');
-  const dtIdx = headers.indexOf('dt');
-  const oIdx  = headers.indexOf('open');
-  const cIdx  = headers.indexOf('close');
-  const hIdx  = headers.indexOf('high');
-  const lIdx  = headers.indexOf('low');
-  const vIdx  = headers.indexOf('vol');
-  if ([dtIdx,oIdx,cIdx,hIdx,lIdx].some(i => i < 0)) return [];
-
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',');
-    if (cols.length < 5) continue;
-    try {
-      const ts = Math.floor(new Date(cols[dtIdx].replace(' ','T') + 'Z').getTime() / 1000);
-      if (isNaN(ts)) continue;
-      rows.push({
-        time:  ts,
-        open:  parseFloat(cols[oIdx]),
-        high:  parseFloat(cols[hIdx]),
-        low:   parseFloat(cols[lIdx]),
-        close: parseFloat(cols[cIdx]),
-        value: vIdx >= 0 ? parseFloat(cols[vIdx]) : 0
+    const s = await res.json();
+    
+    if (s.bi) {
+      const ser = chart.addLineSeries({ color:'#ff9800', lineWidth:1, lastValueVisible:false, priceLineVisible:false });
+      signalSeriesList.push(ser);
+      const points = [];
+      s.bi.forEach(b => {
+        const t1 = parseDt(b.start_dt);
+        const t2 = parseDt(b.end_dt);
+        if (t1) points.push({ time:t1, value: b.direction.toString().includes('up') || b.direction == 1 ? b.low : b.high });
+        if (t2) points.push({ time:t2, value: b.direction.toString().includes('up') || b.direction == 1 ? b.high : b.low });
       });
-    } catch { /* skip bad row */ }
-  }
-  return rows;
+      ser.setData(uniqueByTime(points));
+    }
+    if (s.markers) candleSeries.setMarkers(s.markers);
+    else candleSeries.setMarkers([]);
+  } catch (e) {}
 }
 
-function renderChart(data) {
-  const candles = data.map(d => ({ time:d.time, open:d.open, high:d.high, low:d.low, close:d.close }));
-  const volumes = data.map(d => ({
-    time:  d.time,
-    value: d.value,
-    color: d.close >= d.open ? 'rgba(63,185,80,0.5)' : 'rgba(248,81,73,0.5)'
-  }));
-  candleSeries.setData(candles);
-  volumeSeries.setData(volumes);
-  chart.timeScale().fitContent();
+function parseDt(str) {
+  if (!str) return null;
+  return Math.floor(new Date(str.replace(' ','T') + 'Z').getTime() / 1000);
+}
+function uniqueByTime(arr) {
+  const seen = new Set();
+  return arr.filter(i => {
+    if (seen.has(i.time)) return false;
+    seen.add(i.time);
+    return true;
+  }).sort((a,b) => a.time - b.time);
 }
 
 function updateStats(sym, data) {
   if (!data.length) return;
   const last = data[data.length - 1];
   const first = data[0];
+  const chg = (((last.close - first.open) / first.open) * 100).toFixed(2);
+  const isUp = last.close >= first.open;
 
-  const price  = last.close.toFixed(last.close < 1 ? 6 : 2);
-  const change = (((last.close - first.open) / first.open) * 100).toFixed(2);
-  const isUp   = last.close >= first.open;
-
-  const highs  = Math.max(...data.map(d => d.high)).toFixed(last.close < 1 ? 6 : 2);
-  const lows   = Math.min(...data.map(d => d.low)).toFixed(last.close < 1 ? 6 : 2);
-  const vol    = formatVolume(data.reduce((s, d) => s + (d.value || 0), 0));
-
-  setStatVal('qPrice',  price,  isUp ? 'up' : 'down');
-  setStatVal('qChg',    `${isUp ? '+' : ''}${change}%`, isUp ? 'up' : 'down');
-  setStatVal('qHigh',   highs);
-  setStatVal('qLow',    lows);
-  setStatVal('qVol',    vol);
-  setStatVal('qCount',  data.length + ' K');
+  setStat('qPrice', last.close.toFixed(last.close < 1 ? 4 : 2), isUp ? 'up' : 'down');
+  setStat('qChg', `${isUp?'+':''}${chg}%`, isUp ? 'up' : 'down');
+  setStat('qHigh', Math.max(...data.map(d=>d.high)).toFixed(2));
+  setStat('qLow',  Math.min(...data.map(d=>d.low)).toFixed(2));
+  setStat('qVol',  formatVolume(data.reduce((a,b)=>a+(b.value||0),0)));
 }
 
-function setStatVal(id, val, cls) {
+function setStat(id, val, cls) {
   const el = document.getElementById(id);
-  if (!el) return;
-  el.textContent = val;
-  el.className = 'stat-val' + (cls ? ' ' + cls : '');
+  if (el) { el.textContent = val; el.className = 'i-val' + (cls ? ' ' + cls : ''); }
 }
-
 function formatVolume(v) {
   if (v >= 1e9) return (v/1e9).toFixed(1) + 'B';
   if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
-  if (v >= 1e3) return (v/1e3).toFixed(1) + 'K';
-  return v.toFixed(0);
+  return (v/1e3).toFixed(1) + 'K';
 }
 
-// ── News ─────────────────────────────────────────────────
 async function loadNews(dateStr) {
-  if (!dateStr) dateStr = getTodayStr();
   const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/news/${dateStr}.md`;
-  const el  = document.getElementById('newsContent');
-  el.innerHTML = '<div class="news-loading">正在加载新闻...</div>';
-
+  const el = document.getElementById('newsContent');
+  el.innerHTML = '<div style="color:var(--text-muted); padding:40px; text-align:center;">读取中...</div>';
   try {
     const res = await fetch(url);
     if (!res.ok) {
-      // Try yesterday
-      const yesterday = getYesterdayStr(dateStr);
-      const res2 = await fetch(`${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/news/${yesterday}.md`);
-      if (!res2.ok) {
-        el.innerHTML = `<div class="news-empty">📭 暂无 ${dateStr} 的新闻早报，数据将在每日 Action 后更新。</div>`;
-        return;
-      }
-      el.innerHTML = renderNewsMarkdown(await res2.text(), yesterday);
+      el.innerHTML = `<div style="color:var(--text-muted); padding:40px; text-align:center;">📅 ${dateStr} 暂无。</div>`;
       return;
     }
-    el.innerHTML = renderNewsMarkdown(await res.text(), dateStr);
-  } catch (e) {
-    el.innerHTML = `<div class="news-empty">❌ 加载失败：${e.message}</div>`;
-  }
+    const md = await res.text();
+    el.innerHTML = renderSimpleMarkdown(md);
+  } catch (e) { el.innerHTML = '❌ 无法加载。'; }
 }
 
-function renderNewsMarkdown(md, dateLbl) {
-  if (!md) return `<div class="news-empty">📭 ${dateLbl} 暂无新闻内容</div>`;
-  
-  // Simple markdown-to-html converter
-  let html = md
-    // Headers
-    .replace(/^# (.*$)/gm, '<h1 class="news-title-main">$1</h1>')
-    .replace(/^## (.*$)/gm, '<h2 class="news-section-title">$1</h2>')
-    .replace(/^### (.*$)/gm, '<h3 class="news-item-title">$1</h3>')
-    // Blockquotes
-    .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>')
-    // Bold
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    // Links
-    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="news-link">$1</a>')
-    // Horizontal rule
-    .replace(/^---$/gm, '<hr class="news-divider">')
-    // Newlines to breaks (careful with existing tags)
-    .split('\n').join('<br>');
-
-  // Wrap in sections if simplified
-  return `<div class="news-rendered-body">${html}</div>`;
+function renderSimpleMarkdown(md) {
+  return md.replace(/^# (.*$)/gm, '<h1 style="margin-bottom:20px">$1</h1>')
+           .replace(/^## (.*$)/gm, '<h2 style="color:var(--accent-blue); margin:30px 0 15px">$1</h2>')
+           .replace(/^### (.*$)/gm, '<h3 style="margin:20px 0 10px">$1</h3>')
+           .replace(/^---$/gm, '<hr style="opacity:0.1; margin:30px 0">')
+           .replace(/> (.*$)/gm, '<blockquote style="border-left:4px solid var(--accent-blue); padding-left:15px; color:var(--text-dim); margin:10px 0">$1</blockquote>')
+           .split('\n').join('<br>');
 }
 
-// ── Helpers ───────────────────────────────────────────────
-function getRecentMonths(n) {
-  const months = [];
-  const now = new Date();
-  for (let i = 0; i < n; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const m = d.getMonth() + 1;
-    months.push(`${d.getFullYear()}-${String(m).padStart(2,'0')}`);
-  }
-  return months;
-}
-
-function getTodayStr() {
-  return new Date().toISOString().split('T')[0];
-}
-
-function getYesterdayStr(dateStr) {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().split('T')[0];
-}
-
-function showLoading(show) {
-  const el = document.getElementById('loadingOverlay');
-  if (el) el.style.display = show ? 'flex' : 'none';
-}
-
-function showError(msg) {
-  const el = document.getElementById('errorBox');
-  if (el) { el.textContent = msg; el.style.display = 'block'; }
-}
-
-function hideError() {
-  const el = document.getElementById('errorBox');
-  if (el) el.style.display = 'none';
-}
-
-// ── Market Status ─────────────────────────────────────────
 function updateMarketStatus() {
-  const dot  = document.getElementById('marketDot');
+  const dot = document.getElementById('marketDot');
   const text = document.getElementById('marketStatusText');
-  if (!dot || !text) return;
-
-  const now  = new Date();
-  const etNow = new Date(now.toLocaleString('en-US', { timeZone:'America/New_York' }));
-  const day  = etNow.getDay();
-  const h    = etNow.getHours();
-  const m    = etNow.getMinutes();
-  const mins = h * 60 + m;
-
-  const isWeekday  = day >= 1 && day <= 5;
-  const inSession  = mins >= 9*60+30 && mins < 16*60;
-  const isOpen     = isWeekday && inSession;
-
-  dot.className  = 'dot' + (isOpen ? '' : ' closed');
-  text.textContent = isOpen ? '美股交易中' : '美股休市';
+  const etNow = new Date(new Date().toLocaleString('en-US', { timeZone:'America/New_York' }));
+  const open = etNow.getDay() >= 1 && etNow.getDay() <= 5 && (etNow.getHours()*60+etNow.getMinutes() >= 570 && etNow.getHours()*60+etNow.getMinutes() < 960);
+  if (dot) dot.className = 'dot' + (open ? '' : ' closed');
+  if (text) text.textContent = open ? '美股交易中 (EST)' : '美股已休市 (EST)';
 }
+
+function getTodayStr() { return new Date().toISOString().split('T')[0]; }
+function showLoading(s) { document.getElementById('loadingOverlay').style.display = s ? 'flex' : 'none'; }
+function showError(m) { const e = document.getElementById('errorBox'); e.textContent = m; e.style.display = 'block'; }
+function hideError() { document.getElementById('errorBox').style.display = 'none'; }
