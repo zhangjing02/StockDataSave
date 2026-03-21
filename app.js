@@ -53,6 +53,11 @@ let state = {
   searchCategory: 'stocks' // stocks, etfs, crypto
 };
 
+let chart = null;
+let candleSeries = null;
+let volumeSeries = null;
+let signalSeriesList = [];
+
 let chartReady;
 let resolveChartReady;
 chartReady = new Promise(resolve => { resolveChartReady = resolve; });
@@ -302,7 +307,11 @@ function parseCSV(text) {
     let ts;
     try {
       ts = Math.floor(new Date(timeStr.replace(' ','T') + (timeStr.includes('+') || timeStr.includes('Z') ? '' : 'Z')).getTime() / 1000);
-    } catch(err) { continue; }
+    } catch(e) { 
+      // If a single row's date parsing fails, skip this row and continue with others.
+      // Returning null here would prematurely exit the entire parseCSV function.
+      continue; 
+    }
     
     if (isNaN(ts)) continue;
     rows.push({
