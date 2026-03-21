@@ -80,16 +80,6 @@ if (document.readyState === 'loading') {
   bootstrap();
 }
 
-  const dateInput = document.getElementById('newsDateInput');
-  if (dateInput) dateInput.value = getTodayStr();
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.sidebar-search')) {
-      showSearchResults(false);
-    }
-  });
-});
-
 // ── Search Logic ─────────────────────────────────────────
 function setSearchCategory(cat) {
   state.searchCategory = cat;
