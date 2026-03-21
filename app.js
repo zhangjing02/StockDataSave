@@ -1,12 +1,11 @@
 // ============================================================
-//  CZSC 美股量化平台 - app.js (Search Tabs Edition)
+//  CZSC 美股量化平台 - Premium UI Integration
 // ============================================================
 
 const CONFIG = {
   RAW_BASE: 'https://raw.githubusercontent.com/zhangjing02/StockDataSave/main',
   DATA_PATH: 'data',
 
-  // Categorized Pools
   stocks: [
     'AAPL','MSFT','NVDA','TSLA','META','AMZN','GOOG','AMD',
     'PLTR','SMCI','ARM','ORCL','ASML','TSM','AVGO','MU',
@@ -48,14 +47,14 @@ const CONFIG = {
 let state = {
   symbol:   'AAPL',
   tf:       '1d',
-  activeTab:'Chart',
-  searchKeyword: '',
-  searchCategory: 'stocks' // stocks, etfs, crypto
+  searchKeyword: ''
 };
 
 let chart = null;
 let candleSeries = null;
 let volumeSeries = null;
+let emaSeries = null;
+let smaSeries = null;
 let signalSeriesList = [];
 
 let chartReady;
@@ -64,81 +63,101 @@ chartReady = new Promise(resolve => { resolveChartReady = resolve; });
 
 // ── Init ─────────────────────────────────────────────────
 function bootstrap() {
-  updateMarketStatus();
-  setInterval(updateMarketStatus, 60000);
+  renderWatchlist();
+  onSelectSymbol(state.symbol); // Initializes header text
   initChart();
   loadChart();
-
-  const dateInput = document.getElementById('newsDateInput');
-  if (dateInput) dateInput.value = getTodayStr();
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.sidebar-search')) {
-      showSearchResults(false);
-    }
-  });
 }
 
-if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', bootstrap);
-} else {
-  bootstrap();
-}
+if (document.readyState === 'loading') { window.addEventListener('DOMContentLoaded', bootstrap); } 
+else { bootstrap(); }
 
-// ── Search Logic ─────────────────────────────────────────
-function setSearchCategory(cat) {
-  state.searchCategory = cat;
-  document.querySelectorAll('.s-tab').forEach(t => {
-    t.classList.toggle('active', t.id === `stab_${cat}`);
-  });
-  onSearchInput(state.searchKeyword);
-}
-
-function showSearchResults(show) {
-  const dd = document.getElementById('searchDropdown');
-  if (dd) dd.style.display = show ? 'block' : 'none';
-  if (show) onSearchInput(state.searchKeyword);
-}
-
+// ── Watchlist & Search Logic ─────────────────────────────
 function onSearchInput(val) {
   state.searchKeyword = (val || '').toLowerCase();
+  
+  // Also filter sidebar instead of just dropdown
+  renderWatchlist(state.searchKeyword);
+
+  // Still show dropdown if they are actively typing for quick hits
   const dd = document.getElementById('searchDropdown');
   if (!dd) return;
   dd.innerHTML = '';
-
-  const pool = CONFIG[state.searchCategory] || [];
-  const filtered = pool.filter(s => {
-    const name = CONFIG.names[s] || '';
-    return s.toLowerCase().includes(state.searchKeyword) || 
-           name.toLowerCase().includes(state.searchKeyword);
-  });
-
-  if (filtered.length === 0) {
-    dd.innerHTML = '<div style="padding:10px; font-size:12px; color:var(--text-muted)">无匹配结果</div>';
+  
+  if(!val.trim()) {
+    dd.style.display = 'none';
     return;
   }
+  
+  const allSymbols = [...CONFIG.stocks, ...CONFIG.etfs, ...CONFIG.crypto];
+  const filtered = allSymbols.filter(s => {
+    const name = CONFIG.names[s] || '';
+    return s.toLowerCase().includes(state.searchKeyword) || name.toLowerCase().includes(state.searchKeyword);
+  });
 
-  filtered.forEach(sym => {
+  if (filtered.length > 0) {
+    dd.style.display = 'block';
+    filtered.slice(0, 10).forEach(sym => {
+      const item = document.createElement('div');
+      item.className = 'search-item';
+      item.onclick = () => { onSelectSymbol(sym); dd.style.display='none'; document.getElementById('symbolSearch').value=''; };
+      item.innerHTML = `
+        <span class="name">${sym}</span>
+        <span class="sub">${CONFIG.names[sym] || ''}</span>
+      `;
+      dd.appendChild(item);
+    });
+  } else {
+    dd.style.display = 'none';
+  }
+}
+
+function renderWatchlist(query = '') {
+  const container = document.getElementById('watchlistContainer');
+  if(!container) return;
+  container.innerHTML = '';
+  
+  const allSymbols = [...CONFIG.stocks, ...CONFIG.etfs, ...CONFIG.crypto];
+  const q = query.toLowerCase();
+  
+  // Render up to 50 active items for performance
+  let renderedCount = 0;
+  
+  allSymbols.forEach(sym => {
+    if(renderedCount >= 60 && !q) return; // Limit initial render if no search
+
+    const name = CONFIG.names[sym] || '';
+    if(q && !sym.toLowerCase().includes(q) && !name.toLowerCase().includes(q)) return;
+    
+    renderedCount++;
     const item = document.createElement('div');
-    item.className = 'symbol-item';
+    item.className = 'wl-item' + (sym === state.symbol ? ' active' : '');
     item.onclick = () => onSelectSymbol(sym);
+    
     item.innerHTML = `
-      <span class="s-name">${sym}</span>
-      <span class="s-sub">${CONFIG.names[sym] || ''}</span>
+        <div class="wl-left">
+            <span class="wl-ticker">${sym}</span>
+            <span class="wl-name">${name}</span>
+        </div>
+        <div class="wl-right">
+            <span class="wl-price" id="wl-p-${sym}">---</span>
+            <span class="wl-chg flat" id="wl-c-${sym}">---</span>
+        </div>
     `;
-    dd.appendChild(item);
+    container.appendChild(item);
   });
 }
 
 function onSelectSymbol(sym) {
   state.symbol = sym;
-  const input = document.getElementById('symbolSearch');
-  if (input) input.value = sym;
-  showSearchResults(false);
+  renderWatchlist(state.searchKeyword); // refresh active state
+  
+  const hTitle = document.getElementById('headerSymbolName');
+  if (hTitle) hTitle.innerHTML = `${CONFIG.names[sym] || sym} (${sym}) <i class="fas fa-chevron-down" style="margin-left:8px; font-size:10px;"></i>`;
+  
   loadChart();
 }
 
-// ── Timeframe & Tab ──────────────────────────────────────
 function switchTF(tf, btn) {
   state.tf = tf;
   document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
@@ -146,66 +165,53 @@ function switchTF(tf, btn) {
   loadChart();
 }
 
-function switchTab(tab) {
-  state.activeTab = tab;
-  ['Chart', 'News'].forEach(t => {
-    const pane = document.getElementById('tab' + t);
-    const btn  = document.getElementById('btn' + t);
-    if (pane) pane.style.display = (t === tab) ? 'block' : 'none';
-    if (btn) btn.classList.toggle('active', t === tab);
-  });
-  
-  if (tab === 'News') {
-    const input = document.getElementById('newsDateInput');
-    loadNews(input?.value || getTodayStr());
-  } else {
-    setTimeout(() => {
-      if (chart) {
-        const container = document.getElementById('chartContainer');
-        if (container) chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
-      }
-    }, 50);
-  }
-}
-
-// ── Chart ────────────────────────────────────────────────
+// ── Chart Subsystem ──────────────────────────────────────
 function initChart() {
   const container = document.getElementById('chartContainer');
-  if (!container) {
-    console.warn('⚠️ Chart container not found in DOM yet.');
-    return;
-  }
+  if (!container) return;
 
   try {
     chart = LightweightCharts.createChart(container, {
       width:  container.clientWidth || 800,
       height: container.clientHeight || 500,
       layout: { 
-        background: { color: 'transparent' }, 
-        textColor: '#8b949e',
-        fontFamily: 'Inter'
+        background: { type: 'solid', color: 'transparent' }, 
+        textColor: 'rgba(255, 255, 255, 0.6)',
+        fontFamily: "'Inter', sans-serif"
       },
       grid: {
-        vertLines: { color: 'rgba(33, 38, 45, 0.2)' },
-        horzLines: { color: 'rgba(33, 38, 45, 0.2)' }
+        vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
+        horzLines: { color: 'rgba(255, 255, 255, 0.05)' }
       },
       crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-      rightPriceScale: { borderColor: '#30363d', scaleMargins: { top: 0.1, bottom: 0.2 } },
-      timeScale: { borderColor: '#30363d', timeVisible: true, secondsVisible: false }
+      rightPriceScale: { borderColor: 'rgba(255, 255, 255, 0.1)' },
+      timeScale: { 
+        borderColor: 'rgba(255, 255, 255, 0.1)', 
+        timeVisible: true, 
+        secondsVisible: false
+      }
     });
 
     candleSeries = chart.addCandlestickSeries({
-      upColor: '#26a69a', wickUpColor: '#26a69a',
-      downColor: '#ef5350', wickDownColor: '#ef5350',
+      upColor: '#10b981', wickUpColor: '#10b981',
+      downColor: '#ef4444', wickDownColor: '#ef4444',
       borderVisible: false
     });
 
     volumeSeries = chart.addHistogramSeries({
       priceFormat: { type: 'volume' },
-      priceScaleId: 'v-scale',
-      scaleMargins: { top: 0.8, bottom: 0 }
+      priceScaleId: 'v-scale'
     });
-    chart.priceScale('v-scale').applyOptions({ visible: false });
+    
+    // Explicitly fix the volume scale overlapping and proportions
+    chart.priceScale('v-scale').applyOptions({
+      visible: false,
+      scaleMargins: { top: 0.82, bottom: 0 },
+    });
+
+    // MAs
+    emaSeries = chart.addLineSeries({ color: '#f59e0b', lineWidth: 1.5, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false });
+    smaSeries = chart.addLineSeries({ color: '#a78bfa', lineWidth: 1.5, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false });
 
     window.addEventListener('resize', () => {
       if (chart && container) {
@@ -213,12 +219,8 @@ function initChart() {
       }
     });
     
-    // Mark as ready
     resolveChartReady();
-    console.log('✅ Chart Engine Initialized');
-  } catch (err) {
-    console.error('❌ Failed to create chart:', err);
-  }
+  } catch (err) { console.error('Error creating chart:', err); }
 }
 
 async function loadChart() {
@@ -229,22 +231,22 @@ async function loadChart() {
   let tf  = state.tf;
   
   let fetchTf = tf;
-  if (tf === '5d') fetchTf = '1m'; 
-  if (tf === '1y') fetchTf = '1mo';
+  if (tf === '1mo') fetchTf = '1mo'; // Placeholder for higher resolution scaling if needed
+  if (tf === '1wk') fetchTf = '1d';  // We'll aggregate weekly from daily if desired, currently using direct fetching if files exist.
+  // Generally, just fetch whatever config requested. The backend has ['1m', '1d'] reliably.
+  if(!['1m','1d','1mo','1wk'].includes(tf)) fetchTf = '1d';
 
   try {
     let data = await fetchPriceData(sym, fetchTf);
     if (!data || data.length === 0) {
-      showError(`⚠️ 暂无 ${sym} [${tf}] 的数据支撑。`);
-      return;
-    }
-
-    if (tf === '5d') {
-      const now = Math.floor(Date.now() / 1000);
-      const fiveDaysAgo = now - (5 * 24 * 3600);
-      data = data.filter(d => d.time >= fiveDaysAgo);
-    } else if (tf === '1y') {
-      data = aggregateToYearly(data);
+      if(tf !== '1d') {
+          // fallback to 1d
+          data = await fetchPriceData(sym, '1d');
+      }
+      if(!data || data.length === 0) {
+          showError(`⚠️ No data found for ${sym}.`);
+          return;
+      }
     }
 
     renderChart(data);
@@ -252,7 +254,7 @@ async function loadChart() {
     loadSignals(sym, fetchTf);
 
   } catch (e) {
-    showError(`❌ 加载失败: ${e.message}`);
+    showError(`❌ Failed to load: ${e.message}`);
   } finally {
     showLoading(false);
   }
@@ -264,23 +266,6 @@ async function fetchPriceData(symbol, tf) {
   if (!res.ok) return [];
   const text = await res.text();
   return parseCSV(text);
-}
-
-function aggregateToYearly(monthlyData) {
-  if (!monthlyData.length) return [];
-  const years = {};
-  monthlyData.forEach(d => {
-    const year = new Date(d.time * 1000).getUTCFullYear();
-    if (!years[year]) {
-      years[year] = { time: Math.floor(Date.UTC(year, 0, 1)/1000), open: d.open, high: d.high, low: d.low, close: d.close, value: d.value };
-    } else {
-      years[year].high = Math.max(years[year].high, d.high);
-      years[year].low = Math.min(years[year].low, d.low);
-      years[year].close = d.close;
-      years[year].value += (d.value || 0);
-    }
-  });
-  return Object.values(years).sort((a,b) => a.time - b.time);
 }
 
 function parseCSV(text) {
@@ -303,15 +288,9 @@ function parseCSV(text) {
     let timeStr = cols[dtIdx];
     if (!timeStr) continue;
     
-    // Defensive date parsing
     let ts;
-    try {
-      ts = Math.floor(new Date(timeStr.replace(' ','T') + (timeStr.includes('+') || timeStr.includes('Z') ? '' : 'Z')).getTime() / 1000);
-    } catch(e) { 
-      // If a single row's date parsing fails, skip this row and continue with others.
-      // Returning null here would prematurely exit the entire parseCSV function.
-      continue; 
-    }
+    try { ts = Math.floor(new Date(timeStr.replace(' ','T') + (timeStr.includes('+') || timeStr.includes('Z') ? '' : 'Z')).getTime() / 1000); } 
+    catch(e) { continue; }
     
     if (isNaN(ts)) continue;
     rows.push({
@@ -326,21 +305,46 @@ function parseCSV(text) {
   return rows.sort((a,b) => a.time - b.time);
 }
 
+// Math logic for Indicators
+function calculateSMA(data, period) {
+    const res = [];
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) {
+        sum += data[i].close;
+        if (i >= period) sum -= data[i - period].close;
+        if (i >= period - 1) res.push({ time: data[i].time, value: sum / period });
+    }
+    return res;
+}
+
+function calculateEMA(data, period) {
+    const res = [];
+    if(data.length === 0) return res;
+    const k = 2 / (period + 1);
+    let ema = data[0].close;
+    for (let i = 0; i < data.length; i++) {
+        if(i > 0) ema = (data[i].close - ema) * k + ema;
+        if (i >= period - 1) res.push({ time: data[i].time, value: ema });
+    }
+    return res;
+}
+
 async function renderChart(data) {
-  // Wait until chart components are definitely instantiated
   await chartReady;
 
-  if (!candleSeries || !volumeSeries || !chart) {
-    console.error('❌ Chart series still null after chartReady');
-    return;
-  }
+  if (!candleSeries || !volumeSeries || !chart) return;
   candleSeries.setData(data);
   const volumes = data.map(d => ({
     time: d.time,
     value: d.value,
-    color: d.close >= d.open ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)'
+    color: d.close >= d.open ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'
   }));
   volumeSeries.setData(volumes);
+  
+  // Set MA data
+  if(emaSeries) emaSeries.setData(calculateEMA(data, 20));
+  if(smaSeries) smaSeries.setData(calculateSMA(data, 50));
+
   chart.timeScale().fitContent();
 }
 
@@ -356,7 +360,7 @@ async function loadSignals(symbol, tf) {
     const s = await res.json();
     
     if (s.bi) {
-      const ser = chart.addLineSeries({ color:'#ff9800', lineWidth:1, lastValueVisible:false, priceLineVisible:false });
+      const ser = chart.addLineSeries({ color:'#60a5fa', lineWidth:1, lastValueVisible:false, priceLineVisible:false });
       signalSeriesList.push(ser);
       const points = [];
       s.bi.forEach(b => {
@@ -392,72 +396,51 @@ function updateStats(sym, data) {
   const first = data[0];
   const chg = (((last.close - first.open) / first.open) * 100).toFixed(2);
   const isUp = last.close >= first.open;
+  
+  const priceStr = '$' + (last.close || 0).toFixed(last.close < 1 ? 4 : 2);
+  const chgStr = `${isUp?'+':''}${chg}%`;
 
-  setStat('qPrice', (last.close || 0).toFixed(last.close < 1 ? 4 : 2), isUp ? 'up' : 'down');
-  setStat('qChg', `${isUp?'+':''}${chg}%`, isUp ? 'up' : 'down');
-  setStat('qHigh', (Math.max(...data.map(d=>d.high||0)) || 0).toFixed(2));
-  setStat('qLow',  (Math.min(...data.map(d=>d.low||0)) || 0).toFixed(2));
-  setStat('qVol',  formatVolume(data.reduce((a,b)=>a+(b.value||0),0)));
+  // Update Top Stats Cards
+  setStat('qPrice', priceStr);
+  const qSub = document.getElementById('qSubPrice');
+  if(qSub) {
+      qSub.textContent = chgStr;
+      qSub.className = 's-sub ' + (isUp ? 'up' : 'down');
+  }
+  
+  setStat('qChg', chgStr, isUp ? 'up' : 'down');
+  setStat('qHigh', '$' + (Math.max(...data.map(d=>d.high||0)) || 0).toFixed(2));
+  setStat('qLow',  '$' + (Math.min(...data.map(d=>d.low||0)) || 0).toFixed(2));
+  
+  // Update Chart Title Ticker
+  setStat('cTicker', `${sym}: ${priceStr}`);
+  
+  // Also push to the active sidebar item
+  const wlPrice = document.getElementById(`wl-p-${sym}`);
+  const wlChg = document.getElementById(`wl-c-${sym}`);
+  if (wlPrice) wlPrice.textContent = priceStr;
+  if (wlChg) {
+      wlChg.textContent = chgStr;
+      wlChg.className = 'wl-chg ' + (isUp ? 'up' : 'down');
+  }
 }
 
 function setStat(id, val, cls) {
   const el = document.getElementById(id);
-  if (el) { el.textContent = val; el.className = 'i-val' + (cls ? ' ' + cls : ''); }
-}
-function formatVolume(v) {
-  if (v >= 1e9) return (v/1e9).toFixed(1) + 'B';
-  if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
-  return (v/1e3).toFixed(1) + 'K';
+  if (el) { 
+      el.textContent = val; 
+      if(cls) el.className = el.dataset.origClass ? el.dataset.origClass + ' ' + cls : (el.closest('.s-val') ? 's-val ' + cls : 'i-val ' + cls); 
+  }
 }
 
-async function loadNews(dateStr) {
-  const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/news/${dateStr}.md`;
-  const el = document.getElementById('newsContent');
-  if (!el) return;
-  el.innerHTML = '<div style="color:var(--text-muted); padding:40px; text-align:center;">读取中...</div>';
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      el.innerHTML = `<div style="color:var(--text-muted); padding:40px; text-align:center;">📅 ${dateStr} 暂无。</div>`;
-      return;
-    }
-    const md = await res.text();
-    el.innerHTML = renderSimpleMarkdown(md);
-  } catch (e) { el.innerHTML = '❌ 无法加载。'; }
-}
-
-function renderSimpleMarkdown(md) {
-  if (!md) return '';
-  return md.replace(/^# (.*$)/gm, '<h1 style="margin-bottom:20px">$1</h1>')
-           .replace(/^## (.*$)/gm, '<h2 style="color:var(--accent-blue); margin:30px 0 15px">$1</h2>')
-           .replace(/^### (.*$)/gm, '<h3 style="margin:20px 0 10px">$1</h3>')
-           .replace(/^---$/gm, '<hr style="opacity:0.1; margin:30px 0">')
-           .replace(/> (.*$)/gm, '<blockquote style="border-left:4px solid var(--accent-blue); padding-left:15px; color:var(--text-dim); margin:10px 0">$1</blockquote>')
-           .split('\n').join('<br>');
-}
-
-function updateMarketStatus() {
-  const dot = document.getElementById('marketDot');
-  const text = document.getElementById('marketStatusText');
-  const etNow = new Date(new Date().toLocaleString('en-US', { timeZone:'America/New_York' }));
-  const open = etNow.getDay() >= 1 && etNow.getDay() <= 5 && (etNow.getHours()*60+etNow.getMinutes() >= 570 && etNow.getHours()*60+etNow.getMinutes() < 960);
-  if (dot) dot.className = 'dot' + (open ? '' : ' closed');
-  if (text) text.textContent = open ? '美股交易中 (EST)' : '美股已休市 (EST)';
-}
-
-function getTodayStr() { return new Date().toISOString().split('T')[0]; }
 function showLoading(s) {
   const el = document.getElementById('loadingOverlay');
   if (el) el.style.display = s ? 'flex' : 'none';
 }
 function showError(msg) {
-  console.error(msg);
   showLoading(false);
   const err = document.getElementById('errorBox');
-  if (err) {
-    err.textContent = msg;
-    err.style.display = 'block';
-  }
+  if (err) { err.textContent = msg; err.style.display = 'block'; }
 }
 function hideError() {
   const err = document.getElementById('errorBox');

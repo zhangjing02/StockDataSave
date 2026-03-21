@@ -1,125 +1,120 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>CZSC 量化平台 · Premium</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
-  <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <!-- Lightweight Charts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
-
-  <!-- Sidebar: Search & Strategy -->
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-logo">ALPHA CZSC</div>
-    </div>
-    
-    <div class="sidebar-search">
-      <input type="text" id="symbolSearch" class="search-input" placeholder="输入代码或名称..." onfocus="showSearchResults(true)" oninput="onSearchInput(this.value)">
+  <div class="app-background">
+    <div class="app-glass-container">
       
-      <!-- Search Category Tabs -->
-      <div class="search-tabs">
-        <button id="stab_stocks" class="s-tab active" onclick="setSearchCategory('stocks')">股票</button>
-        <button id="stab_etfs" class="s-tab" onclick="setSearchCategory('etfs')">ETF</button>
-        <button id="stab_crypto" class="s-tab" onclick="setSearchCategory('crypto')">虚拟币</button>
-      </div>
+      <!-- Sidebar Watchlist -->
+      <aside class="glass-sidebar">
+        <div class="sidebar-top">
+          <div class="user-profile">
+            <img src="https://ui-avatars.com/api/?name=ZJ&background=3498db&color=fff&rounded=true" alt="User">
+          </div>
+          
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="symbolSearch" placeholder="Search Ticker..." oninput="onSearchInput(this.value)">
+            <div id="searchDropdown" class="search-dropdown" style="display:none;"></div>
+          </div>
 
-      <div id="searchDropdown" class="search-dropdown" style="display:none;">
-        <!-- Search Results here -->
-      </div>
-    </div>
-
-    <!-- Future Strategy Buttons Area -->
-    <div class="sidebar-nav">
-      <div class="nav-label">策略分析 (Strategy)</div>
-      <div class="strategy-placeholder">
-        <div class="strategy-item-empty">等待集成策略...</div>
-      </div>
-    </div>
-  </aside>
-
-  <!-- Main View -->
-  <main class="main-wrap">
-    
-    <!-- Top Bar: Actions & Market Status -->
-    <header class="top-tools">
-      <div class="search-nav">
-        <!-- Tab Switches: Chart vs News -->
-        <div class="tf-row">
-          <button id="btnChart" class="tf-btn active" onclick="switchTab('Chart')">图表</button>
-          <button id="btnNews" class="tf-btn" onclick="switchTab('News')">简报</button>
+          <div class="watchlist-header">
+            <span>Stock Watchlist</span>
+            <i class="fas fa-ellipsis-h" style="color: rgba(255,255,255,0.4); cursor:pointer;"></i>
+          </div>
         </div>
         
-        <div class="tf-row">
-          <button id="tf1m" class="tf-btn" onclick="switchTF('1m', this)">分时</button>
-          <button id="tf5d" class="tf-btn" onclick="switchTF('5d', this)">5日</button>
-          <button id="tf1d" class="tf-btn active" onclick="switchTF('1d', this)">日K</button>
-          <button id="tf1wk" class="tf-btn" onclick="switchTF('1wk', this)">周K</button>
-          <button id="tf1mo" class="tf-btn" onclick="switchTF('1mo', this)">月K</button>
-          <button id="tf3mo" class="tf-btn" onclick="switchTF('3mo', this)">季K</button>
-          <button id="tf1y" class="tf-btn" onclick="switchTF('1y', this)">年K</button>
+        <div class="watchlist-items" id="watchlistContainer">
+          <!-- Populated dynamically by JS -->
         </div>
-      </div>
+      </aside>
 
-      <div class="market-status">
-        <span id="marketStatusText" style="font-size: 12px; color: var(--text-dim); margin-right: 8px;">加载中...</span>
-        <div id="marketDot" class="dot"></div>
-      </div>
-    </header>
+      <!-- Main Panel -->
+      <main class="glass-main">
+        <!-- Top Right Header -->
+        <header class="main-header">
+          <div class="header-right">
+            <i class="far fa-user-circle"></i>
+            <i class="far fa-bell"></i>
+            <span id="headerSymbolName" class="header-ticker">Apple Inc. (AAPL) <i class="fas fa-chevron-down" style="margin-left:8px; font-size:10px;"></i></span>
+          </div>
+        </header>
 
-    <!-- Dashboard: Live Stats (Glassmorphism) -->
-    <section class="market-info" id="statsBar">
-      <div class="info-card">
-        <span class="i-label">最新成交价</span>
-        <div id="qPrice" class="i-val">--</div>
-      </div>
-      <div class="info-card">
-        <span class="i-label">涨跌幅 (区间)</span>
-        <div id="qChg" class="i-val">--</div>
-      </div>
-      <div class="info-card">
-        <span class="i-label">最高</span>
-        <div id="qHigh" class="i-val">--</div>
-      </div>
-      <div class="info-card">
-        <span class="i-label">最低</span>
-        <div id="qLow" class="i-val">--</div>
-      </div>
-      <div class="info-card">
-        <span class="i-label">周期成交量</span>
-        <div id="qVol" class="i-val">--</div>
-      </div>
-    </section>
+        <!-- Stats Cards Row -->
+        <div class="stats-cards">
+          <div class="stat-card">
+            <div class="s-label">Price</div>
+            <div class="s-val" id="qPrice">$--</div>
+            <div class="s-sub" id="qSubPrice">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="s-label">Change</div>
+            <div class="s-val" id="qChg">--</div>
+            <div class="s-sub">Today</div>
+          </div>
+          <div class="stat-card">
+            <div class="s-label">24h High</div>
+            <div class="s-val" id="qHigh">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="s-label">24h Low</div>
+            <div class="s-val" id="qLow">--</div>
+          </div>
+        </div>
 
-    <!-- Chart Container Area -->
-    <section id="tabChart" class="chart-view">
-      <div id="errorBox" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); background:rgba(231,76,60,0.2); border:1px solid #e74c3c; color:white; padding:12px 24px; border-radius:8px; z-index:100; backdrop-filter: blur(10px);"></div>
-      <div id="chartContainer"></div>
-      
-      <!-- Loading Overlay -->
-      <div id="loadingOverlay" class="loading-overlay">
-        <div class="loader-glow"></div>
-        <p style="font-size: 12px; color: var(--text-dim); letter-spacing: 1px;">SYNCING MARKET DATA...</p>
-      </div>
-    </section>
+        <!-- Chart Area -->
+        <div class="chart-section">
+          <div class="chart-toolbar">
+            <div class="tf-selector">
+              <button id="tf1d" class="tf-btn active" onclick="switchTF('1d', this)">1D</button>
+              <button id="tf1m" class="tf-btn" onclick="switchTF('1m', this)">1m</button>
+              <button id="tf1wk" class="tf-btn" onclick="switchTF('1wk', this)">1W</button>
+              <button id="tf1mo" class="tf-btn" onclick="switchTF('1mo', this)">1M</button>
+            </div>
+            
+            <div class="indicators-selector">
+              <span><i class="fas fa-sliders-h"></i> Indicators</span>
+              <i class="fas fa-undo" style="margin-left: 12px; color: rgba(255,255,255,0.4);"></i>
+            </div>
 
-    <!-- News Pane (Hidden by default) -->
-    <section id="tabNews" class="news-pane" style="display:none;">
-      <div class="news-header" style="margin-bottom: 30px; display: flex; align-items: center; justify-content: space-between;">
-        <h2 style="font-weight: 800; font-size: 24px;">每日复盘简报</h2>
-        <input type="date" id="newsDateInput" class="search-input" style="width: 140px;" onchange="loadNews(this.value)">
-      </div>
-      <div id="newsContent"></div>
-    </section>
+            <div class="trade-actions">
+              <button class="btn-buy">BUY</button>
+              <button class="btn-sell">SELL</button>
+            </div>
+          </div>
 
-  </main>
+          <div class="chart-title-info">
+            <span class="c-ticker" id="cTicker">AAPL: $--</span>
+            <span class="c-mas">
+              <span class="c-ema">EMA (20)</span>
+              <span class="c-sma">SMA (50)</span>
+            </span>
+          </div>
 
+          <div id="tabChart" class="chart-wrapper">
+              <div id="errorBox" style="display:none; position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:100; color:#fff; background:rgba(231,76,60,0.8); padding:8px 16px; border-radius:8px; backdrop-filter:blur(4px); font-size:13px;"></div>
+              <!-- This container holds lightweight-charts -->
+              <div id="chartContainer"></div>
+              
+              <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+                <div class="loader-glow"></div>
+              </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
