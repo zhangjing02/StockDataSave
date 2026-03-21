@@ -91,8 +91,9 @@ function showSearchResults(show) {
 }
 
 function onSearchInput(val) {
-  state.searchKeyword = val.toLowerCase();
+  state.searchKeyword = (val || '').toLowerCase();
   const dd = document.getElementById('searchDropdown');
+  if (!dd) return;
   dd.innerHTML = '';
 
   const pool = CONFIG[state.searchCategory] || [];
@@ -393,6 +394,20 @@ function updateMarketStatus() {
 }
 
 function getTodayStr() { return new Date().toISOString().split('T')[0]; }
-function showLoading(s) { document.getElementById('loadingOverlay').style.display = s ? 'flex' : 'none'; }
-function showError(m) { const e = document.getElementById('errorBox'); e.textContent = m; e.style.display = 'block'; }
-function hideError() { document.getElementById('errorBox').style.display = 'none'; }
+function showLoading(s) {
+  const el = document.getElementById('loadingOverlay');
+  if (el) el.style.display = s ? 'flex' : 'none';
+}
+function showError(msg) {
+  console.error(msg);
+  showLoading(false);
+  const err = document.getElementById('errorBox');
+  if (err) {
+    err.textContent = msg;
+    err.style.display = 'block';
+  }
+}
+function hideError() {
+  const err = document.getElementById('errorBox');
+  if (err) err.style.display = 'none';
+}
