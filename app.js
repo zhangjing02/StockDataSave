@@ -176,25 +176,29 @@ function initChart() {
       height: container.clientHeight || 500,
       layout: { 
         background: { type: 'solid', color: 'transparent' }, 
-        textColor: 'rgba(255, 255, 255, 0.6)',
+        textColor: 'rgba(255, 255, 255, 0.45)', // More subtle axis text
         fontFamily: "'Inter', sans-serif"
       },
       grid: {
-        vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
-        horzLines: { color: 'rgba(255, 255, 255, 0.05)' }
+        vertLines: { color: 'rgba(255, 255, 255, 0.02)' }, // Ultra subtle grid
+        horzLines: { color: 'rgba(255, 255, 255, 0.02)' }
       },
-      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-      rightPriceScale: { borderColor: 'rgba(255, 255, 255, 0.1)' },
+      crosshair: { 
+        mode: LightweightCharts.CrosshairMode.Normal,
+        vertLine: { color: 'rgba(255, 255, 255, 0.2)', labelBackgroundColor: '#1e293b' },
+        horzLine: { color: 'rgba(255, 255, 255, 0.2)', labelBackgroundColor: '#1e293b' }
+      },
+      rightPriceScale: { borderColor: 'rgba(255, 255, 255, 0.05)' },
       timeScale: { 
-        borderColor: 'rgba(255, 255, 255, 0.1)', 
+        borderColor: 'rgba(255, 255, 255, 0.05)', 
         timeVisible: true, 
         secondsVisible: false
       }
     });
 
     candleSeries = chart.addCandlestickSeries({
-      upColor: '#10b981', wickUpColor: '#10b981',
-      downColor: '#ef4444', wickDownColor: '#ef4444',
+      upColor: '#00F5D4', wickUpColor: '#00F5D4',
+      downColor: '#FF9F9F', wickDownColor: '#FF9F9F',
       borderVisible: false
     });
 
@@ -210,8 +214,9 @@ function initChart() {
     });
 
     // MAs
-    emaSeries = chart.addLineSeries({ color: '#f59e0b', lineWidth: 1.5, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false });
-    smaSeries = chart.addLineSeries({ color: '#a78bfa', lineWidth: 1.5, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false });
+    // MAs per prototype
+    emaSeries = chart.addLineSeries({ color: '#fca311', lineWidth: 2, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false });
+    smaSeries = chart.addLineSeries({ color: '#7a5af8', lineWidth: 2, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false });
 
     window.addEventListener('resize', () => {
       if (chart && container) {
@@ -341,9 +346,20 @@ async function renderChart(data) {
   }));
   volumeSeries.setData(volumes);
   
+  const emaData = calculateEMA(data, 20);
+  const smaData = calculateSMA(data, 50);
+
   // Set MA data
-  if(emaSeries) emaSeries.setData(calculateEMA(data, 20));
-  if(smaSeries) smaSeries.setData(calculateSMA(data, 50));
+  if(emaSeries) emaSeries.setData(emaData);
+  if(smaSeries) smaSeries.setData(smaData);
+
+  // Update Indicator Pills with latest values
+  const latestEma = emaData.length ? emaData[emaData.length-1].value.toFixed(2) : '--';
+  const latestSma = smaData.length ? smaData[smaData.length-1].value.toFixed(2) : '--';
+  const emaEl = document.querySelector('.c-ema');
+  const smaEl = document.querySelector('.c-sma');
+  if(emaEl) emaEl.textContent = `EMA (20): ${latestEma}`;
+  if(smaEl) smaEl.textContent = `SMA (50): ${latestSma}`;
 
   chart.timeScale().fitContent();
 }
@@ -414,6 +430,12 @@ function updateStats(sym, data) {
   
   // Update Chart Title Ticker
   setStat('cTicker', `${sym}: ${priceStr}`);
+  
+  // Inject change percentage pill next to ticker if we want exactly like prototype
+  const tickerEl = document.getElementById('cTicker');
+  if(tickerEl) {
+      tickerEl.innerHTML = `${sym}: ${priceStr} <span class="wl-chg ${isUp?'up':'down'}" style="font-size:14px; margin-left:12px; vertical-align:middle;">${chgStr}</span>`;
+  }
   
   // Also push to the active sidebar item
   const wlPrice = document.getElementById(`wl-p-${sym}`);
