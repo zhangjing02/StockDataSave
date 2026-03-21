@@ -53,17 +53,32 @@ let state = {
   searchCategory: 'stocks' // stocks, etfs, crypto
 };
 
-let chart = null;
-let candleSeries = null;
-let volumeSeries = null;
-let signalSeriesList = [];
+let chartReady;
+let resolveChartReady;
+chartReady = new Promise(resolve => { resolveChartReady = resolve; });
 
 // ── Init ─────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
+function bootstrap() {
   updateMarketStatus();
   setInterval(updateMarketStatus, 60000);
   initChart();
   loadChart();
+
+  const dateInput = document.getElementById('newsDateInput');
+  if (dateInput) dateInput.value = getTodayStr();
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.sidebar-search')) {
+      showSearchResults(false);
+    }
+  });
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', bootstrap);
+} else {
+  bootstrap();
+}
 
   const dateInput = document.getElementById('newsDateInput');
   if (dateInput) dateInput.value = getTodayStr();
@@ -162,44 +177,53 @@ function switchTab(tab) {
 function initChart() {
   const container = document.getElementById('chartContainer');
   if (!container) {
-    console.error('❌ Missing chartContainer');
+    console.warn('⚠️ Chart container not found in DOM yet.');
     return;
   }
-  chart = LightweightCharts.createChart(container, {
-    width:  container.clientWidth || 800,
-    height: container.clientHeight || 500,
-    layout: { 
-      background: { color: 'transparent' }, 
-      textColor: '#8b949e',
-      fontFamily: 'Inter'
-    },
-    grid: {
-      vertLines: { color: 'rgba(33, 38, 45, 0.2)' },
-      horzLines: { color: 'rgba(33, 38, 45, 0.2)' }
-    },
-    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: { borderColor: '#30363d', scaleMargins: { top: 0.1, bottom: 0.2 } },
-    timeScale: { borderColor: '#30363d', timeVisible: true, secondsVisible: false }
-  });
 
-  candleSeries = chart.addCandlestickSeries({
-    upColor: '#26a69a', wickUpColor: '#26a69a',
-    downColor: '#ef5350', wickDownColor: '#ef5350',
-    borderVisible: false
-  });
+  try {
+    chart = LightweightCharts.createChart(container, {
+      width:  container.clientWidth || 800,
+      height: container.clientHeight || 500,
+      layout: { 
+        background: { color: 'transparent' }, 
+        textColor: '#8b949e',
+        fontFamily: 'Inter'
+      },
+      grid: {
+        vertLines: { color: 'rgba(33, 38, 45, 0.2)' },
+        horzLines: { color: 'rgba(33, 38, 45, 0.2)' }
+      },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      rightPriceScale: { borderColor: '#30363d', scaleMargins: { top: 0.1, bottom: 0.2 } },
+      timeScale: { borderColor: '#30363d', timeVisible: true, secondsVisible: false }
+    });
 
-  volumeSeries = chart.addHistogramSeries({
-    priceFormat: { type: 'volume' },
-    priceScaleId: 'v-scale',
-    scaleMargins: { top: 0.8, bottom: 0 }
-  });
-  chart.priceScale('v-scale').applyOptions({ visible: false });
+    candleSeries = chart.addCandlestickSeries({
+      upColor: '#26a69a', wickUpColor: '#26a69a',
+      downColor: '#ef5350', wickDownColor: '#ef5350',
+      borderVisible: false
+    });
 
-  window.addEventListener('resize', () => {
-    if (chart && container) {
-      chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
-    }
-  });
+    volumeSeries = chart.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'v-scale',
+      scaleMargins: { top: 0.8, bottom: 0 }
+    });
+    chart.priceScale('v-scale').applyOptions({ visible: false });
+
+    window.addEventListener('resize', () => {
+      if (chart && container) {
+        chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+      }
+    });
+    
+    // Mark as ready
+    resolveChartReady();
+    console.log('✅ Chart Engine Initialized');
+  } catch (err) {
+    console.error('❌ Failed to create chart:', err);
+  }
 }
 
 async function loadChart() {
@@ -303,9 +327,12 @@ function parseCSV(text) {
   return rows.sort((a,b) => a.time - b.time);
 }
 
-function renderChart(data) {
+async function renderChart(data) {
+  // Wait until chart components are definitely instantiated
+  await chartReady;
+
   if (!candleSeries || !volumeSeries || !chart) {
-    console.error('❌ Chart not initialized properly');
+    console.error('❌ Chart series still null after chartReady');
     return;
   }
   candleSeries.setData(data);
