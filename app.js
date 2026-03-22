@@ -677,7 +677,9 @@ function calculateCCI(data, n = 14) {
 
 function toggleMA(period, visible) {
   state.indicators.ma[period] = visible;
-  if (maSeriesGroup[period]) maSeriesGroup[period].applyOptions({ visible });
+  if (maSeriesGroup[period]) {
+    maSeriesGroup[period].applyOptions({ visible });
+  }
 }
 
 function toggleIndicator(type, visible) {
@@ -689,94 +691,92 @@ function updateSubCharts(data) {
   const container = document.getElementById('indicatorPanes');
   if (!container) return;
 
-  // Cleanup inactive
-  Object.keys(subCharts).forEach(key => {
-    if (!state.indicators.sub[key]) {
-      const el = document.getElementById(`pane-${key}`);
-      if (el) el.remove();
-      delete subCharts[key];
-    }
-  });
+  // Define standard sub-chart keys to maintain specific order
+  const subKeys = ['MACD', 'KDJ', 'RSI', 'CCI'];
 
-  // Init active
-  Object.keys(state.indicators.sub).forEach(key => {
-    if (state.indicators.sub[key] && !subCharts[key]) {
-      const pane = document.createElement('div');
-      pane.id = `pane-${key}`;
-      pane.className = 'indicator-pane';
-      container.appendChild(pane);
-      
-      const subChart = LightweightCharts.createChart(pane, {
-        width: pane.clientWidth,
-        height: 120,
-        layout: { 
-          background: { type: 'solid', color: 'transparent' }, 
-          textColor: 'rgba(255,255,255,0.4)', 
-          fontSize: 10,
-          fontFamily: "'Inter', sans-serif"
-        },
-        grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(255,255,255,0.02)' } },
-        timeScale: { visible: false },
-        rightPriceScale: { borderColor: 'transparent' },
-        crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
-      });
-      
-      subCharts[key] = { chart: subChart, series: [] };
-      
-      if (key === 'MACD') {
-        const p = state.params.macd || { f: 12, s: 26, m: 9 };
-        subCharts[key].series = [
-          subChart.addLineSeries({ color: '#fca311', lineWidth: 1, title: `DIFF`, priceLineVisible: false }),
-          subChart.addLineSeries({ color: '#7a5af8', lineWidth: 1, title: `DEA`, priceLineVisible: false }),
-          subChart.addHistogramSeries({ title: `MACD`, priceLineVisible: false })
-        ];
-      } else if (key === 'RSI') {
-        const n = state.params.rsi.n;
-        subCharts[key].series = [
-          subChart.addLineSeries({ color: '#3498db', lineWidth: 1, title: `RSI(${n})`, priceLineVisible: false })
-        ];
-      } else if (key === 'KDJ') {
-        const n = state.params.kdj.n;
-        subCharts[key].series = [
-          subChart.addLineSeries({ color: '#ffffff', lineWidth: 1, title: `K(${n})`, priceLineVisible: false }),
-          subChart.addLineSeries({ color: '#f1c40f', lineWidth: 1, title: `D`, priceLineVisible: false }),
-          subChart.addLineSeries({ color: '#e91e63', lineWidth: 1, title: `J`, priceLineVisible: false })
-        ];
-      } else if (key === 'CCI') {
-        const n = state.params.cci.n;
-        subCharts[key].series = [
-          subChart.addLineSeries({ color: '#00f5d4', lineWidth: 1, title: `CCI(${n})`, priceLineVisible: false })
-        ];
+  subKeys.forEach(key => {
+    const isVisible = state.indicators.sub[key];
+    let pane = document.getElementById(`pane-${key}`);
+
+    if (isVisible) {
+      if (!pane) {
+        // Create new pane if it doesn't exist
+        pane = document.createElement('div');
+        pane.id = `pane-${key}`;
+        pane.className = 'indicator-pane';
+        container.appendChild(pane);
+
+        const subChart = LightweightCharts.createChart(pane, {
+          width: pane.clientWidth,
+          height: 140, // Increased height for better visibility
+          layout: { 
+            background: { type: 'solid', color: 'transparent' }, 
+            textColor: 'rgba(255,255,255,0.4)', 
+            fontSize: 10,
+            fontFamily: "'Inter', sans-serif"
+          },
+          grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(255,255,255,0.02)' } },
+          timeScale: { visible: false },
+          rightPriceScale: { borderColor: 'transparent' },
+          crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
+        });
+
+        subCharts[key] = { chart: subChart, series: [] };
+
+        if (key === 'MACD') {
+          subCharts[key].series = [
+            subChart.addLineSeries({ color: '#fca311', lineWidth: 1, title: 'DIFF', lastValueVisible: false, priceLineVisible: false }),
+            subChart.addLineSeries({ color: '#7a5af8', lineWidth: 1, title: 'DEA', lastValueVisible: false, priceLineVisible: false }),
+            subChart.addHistogramSeries({ title: 'HIST', lastValueVisible: false, priceLineVisible: false })
+          ];
+        } else if (key === 'RSI') {
+          subCharts[key].series = [
+            subChart.addLineSeries({ color: '#3498db', lineWidth: 1, title: `RSI`, lastValueVisible: false, priceLineVisible: false })
+          ];
+        } else if (key === 'KDJ') {
+          subCharts[key].series = [
+            subChart.addLineSeries({ color: '#ffffff', lineWidth: 1, title: 'K', lastValueVisible: false, priceLineVisible: false }),
+            subChart.addLineSeries({ color: '#f1c40f', lineWidth: 1, title: 'D', lastValueVisible: false, priceLineVisible: false }),
+            subChart.addLineSeries({ color: '#e91e63', lineWidth: 1, title: 'J', lastValueVisible: false, priceLineVisible: false })
+          ];
+        } else if (key === 'CCI') {
+          subCharts[key].series = [
+            subChart.addLineSeries({ color: '#00f5d4', lineWidth: 1, title: 'CCI', lastValueVisible: false, priceLineVisible: false })
+          ];
+        }
+
+        // Sync time scale
+        chart.timeScale().subscribeVisibleTimeRangeChange(range => {
+          subChart.timeScale().setVisibleRange(range);
+        });
       }
-
-      // Sync time scale
-      chart.timeScale().subscribeVisibleTimeRangeChange(range => {
-        subChart.timeScale().setVisibleRange(range);
-      });
+      
+      // Update data regardless of whether it's new or existing
+      if (key === 'MACD') {
+        const res = calculateMACD(data);
+        subCharts[key].series[0].setData(res.diff);
+        subCharts[key].series[1].setData(res.dea);
+        subCharts[key].series[2].setData(res.hist);
+      } else if (key === 'RSI') {
+        const res = calculateRSI(data, state.params.rsi.n);
+        subCharts[key].series[0].setData(res);
+      } else if (key === 'KDJ') {
+        const res = calculateKDJ(data, state.params.kdj.n, state.params.kdj.m1, state.params.kdj.m2);
+        subCharts[key].series[0].setData(res.k);
+        subCharts[key].series[1].setData(res.d);
+        subCharts[key].series[2].setData(res.j);
+      } else if (key === 'CCI') {
+        const res = calculateCCI(data, state.params.cci.n);
+        subCharts[key].series[0].setData(res);
+      }
+    } else {
+      // Remove if hidden
+      if (pane) {
+        pane.remove();
+        delete subCharts[key];
+      }
     }
   });
-
-  // Set Data
-  if (state.indicators.sub.MACD && subCharts.MACD) {
-    const macdRes = calculateMACD(data);
-    subCharts.MACD.series[0].setData(macdRes.diff);
-    subCharts.MACD.series[1].setData(macdRes.dea);
-    subCharts.MACD.series[2].setData(macdRes.hist);
-  }
-  if (state.indicators.sub.RSI && subCharts.RSI) {
-    const rsiRes = calculateRSI(data, state.params.rsi.n);
-    subCharts.RSI.series[0].setData(rsiRes);
-  }
-  if (state.indicators.sub.KDJ && subCharts.KDJ) {
-    const kdjRes = calculateKDJ(data, state.params.kdj.n, state.params.kdj.m1, state.params.kdj.m2);
-    subCharts.KDJ.series[0].setData(kdjRes.k);
-    subCharts.KDJ.series[1].setData(kdjRes.d);
-    subCharts.KDJ.series[2].setData(kdjRes.j);
-  }
-  if (state.indicators.sub.CCI && subCharts.CCI) {
-    const cciRes = calculateCCI(data, state.params.cci.n);
-    subCharts.CCI.series[0].setData(cciRes);
-  }
 }
 
 // --- Parameter & Overlay Controls ---

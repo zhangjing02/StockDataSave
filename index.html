@@ -59,17 +59,15 @@
               <div class="ind-list">
                 <div class="ind-item">
                    <span>BOLL (布林带)</span>
-                <div class="ind-item">
-                   <span>BOLL (布林带)</span>
                    <label class="sl-switch">
-                     <input type="checkbox" id="toggleBOLL" onchange="toggleIndicator('BOLL', this.checked)">
+                     <input type="checkbox" onchange="toggleIndicator('BOLL', this.checked)">
                      <span class="sl-slider"></span>
                    </label>
                 </div>
                 <div class="ind-item">
                    <span>筹码分布 (Chips)</span>
                    <label class="sl-switch">
-                     <input type="checkbox" id="toggleChips" checked onchange="toggleChipsVisibility(this.checked)">
+                     <input type="checkbox" checked onchange="toggleIndicator('chips', this.checked)">
                      <span class="sl-slider"></span>
                    </label>
                 </div>
@@ -160,12 +158,12 @@
             <div class="chart-info-strip">
                <div class="ma-control-strip">
                  <span class="ma-label">MA:</span>
-                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(5, this.checked)"> 5</label>
-                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(10, this.checked)"> 10</label>
-                 <label class="ma-pill"><input type="checkbox" checked onchange="toggleMA(20, this.checked)"> 20</label>
-                 <label class="ma-pill"><input type="checkbox" checked onchange="toggleMA(50, this.checked)"> 50</label>
-                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(120, this.checked)"> 120</label>
-                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(250, this.checked)"> 250</label>
+                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(5, this.checked)"><span>M5</span></label>
+                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(10, this.checked)"><span>M10</span></label>
+                 <label class="ma-pill"><input type="checkbox" checked onchange="toggleMA(20, this.checked)"><span>M20</span></label>
+                 <label class="ma-pill"><input type="checkbox" checked onchange="toggleMA(50, this.checked)"><span>M50</span></label>
+                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(120, this.checked)"><span>M120</span></label>
+                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(250, this.checked)"><span>M250</span></label>
                </div>
                <div class="trade-btns">
                  <button class="btn btn-buy">BUY</button>
