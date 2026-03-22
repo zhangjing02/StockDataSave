@@ -1,9 +1,6 @@
 name: Daily Stock Data Update (CZSC Format)
 
 on:
-  push:
-    branches:
-      - main
   schedule:
     # 每天美东时间晚上 17:00 运行 (相当于 UTC 21:00) 确保美股已收盘
     - cron: '0 21 * * 1-5'
@@ -48,10 +45,13 @@ jobs:
       - name: Fetch news
         run: python news_fetcher.py
 
-      - name: Commit files
+      - name: Commit and push to data-sync branch
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+          # 切换到数据专用分支（不存在时自动新建孤立分支）
+          git checkout -B data-sync
           git add data/
-          git commit -m "Auto-update daily data, news and signals" || echo "No changes to commit"
-          git push
+          git commit -m "Auto-update: data & signals $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "No changes to commit"
+          # 强制推送到 data-sync（仅数据分支，main 不受影响）
+          git push origin data-sync --force
