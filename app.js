@@ -4,6 +4,7 @@
 
 const CONFIG = {
   RAW_BASE: 'https://raw.githubusercontent.com/zhangjing02/StockDataSave/main',
+  LOCAL_BASE: '.', // Default for relative path
   DATA_PATH: 'data',
 
   stocks: [
@@ -47,6 +48,7 @@ const CONFIG = {
 let state = {
   symbol:   'AAPL',
   tf:       '1d',
+  wlCategory: 'stocks', // NEW: watchlist category
   searchKeyword: ''
 };
 
@@ -62,103 +64,105 @@ chartReady = new Promise(resolve => { resolveChartReady = resolve; });
 
 // ── Init ─────────────────────────────────────────────────
 function bootstrap() {
-  renderWatchlist();
   onSelectSymbol(state.symbol); // Initializes header text
   initChart();
   loadChartData(state.symbol, state.tf);
+  // Watchlist rendering removed from sidebar
 }
 
 if (document.readyState === 'loading') { window.addEventListener('DOMContentLoaded', bootstrap); } 
 else { bootstrap(); }
 
-// ── Watchlist & Search Logic ─────────────────────────────
+// ── Asset Selection Logic (Search Dropdown as Selector) ────────────────
+function onSearchFocus() {
+  renderSearchDropdown('');
+}
+
 function onSearchInput(val) {
   state.searchKeyword = (val || '').toLowerCase();
-  
-  // Also filter sidebar instead of just dropdown
-  renderWatchlist(state.searchKeyword);
+  renderSearchDropdown(state.searchKeyword);
+}
 
-  // Still show dropdown if they are actively typing for quick hits
+function renderSearchDropdown(query = '') {
   const dd = document.getElementById('searchDropdown');
   if (!dd) return;
   dd.innerHTML = '';
-  
-  if(!val.trim()) {
-    dd.style.display = 'none';
-    return;
-  }
-  
-  const allSymbols = [...CONFIG.stocks, ...CONFIG.etfs, ...CONFIG.crypto];
-  const filtered = allSymbols.filter(s => {
-    const name = CONFIG.names[s] || '';
-    return s.toLowerCase().includes(state.searchKeyword) || name.toLowerCase().includes(state.searchKeyword);
-  });
+  dd.style.display = 'block';
 
-  if (filtered.length > 0) {
-    dd.style.display = 'block';
-    filtered.slice(0, 10).forEach(sym => {
-      const item = document.createElement('div');
-      item.className = 'search-item';
-      item.onclick = () => { onSelectSymbol(sym); dd.style.display='none'; document.getElementById('symbolSearch').value=''; };
-      item.innerHTML = `
-        <span class="name">${sym}</span>
-        <span class="sub">${CONFIG.names[sym] || ''}</span>
-      `;
-      dd.appendChild(item);
+  const categories = [
+    { id: 'stocks', label: '热门股票' },
+    { id: 'etfs', label: '精选 ETF' },
+    { id: 'crypto', label: '加密货币' }
+  ];
+
+  let hasResults = false;
+
+  categories.forEach(cat => {
+    const list = CONFIG[cat.id] || [];
+    const filtered = list.filter(s => {
+      const name = CONFIG.names[s] || '';
+      return !query || s.toLowerCase().includes(query) || name.toLowerCase().includes(query);
     });
-  } else {
-    dd.style.display = 'none';
+
+    if (filtered.length > 0) {
+      hasResults = true;
+      const title = document.createElement('div');
+      title.className = 'search-cat-title';
+      title.innerText = cat.label;
+      dd.appendChild(title);
+
+      filtered.forEach(sym => {
+        const item = document.createElement('div');
+        item.className = 'search-item';
+        item.onclick = () => {
+          onSelectSymbol(sym);
+          hideSearchDropdown();
+        };
+        item.innerHTML = `
+          <div class="name">${sym}</div>
+          <div class="sub">${CONFIG.names[sym] || ''}</div>
+        `;
+        dd.appendChild(item);
+      });
+    }
+  });
+
+  if (!hasResults) {
+    dd.innerHTML = '<div style="padding:16px; color:#666; font-size:13px; text-align:center;">未找到匹配资产</div>';
   }
 }
 
-function renderWatchlist(query = '') {
-  const container = document.getElementById('watchlistContainer');
-  if(!container) return;
-  container.innerHTML = '';
-  
-  const allSymbols = [...CONFIG.stocks, ...CONFIG.etfs, ...CONFIG.crypto];
-  const q = query.toLowerCase();
-  
-  // Render up to 50 active items for performance
-  let renderedCount = 0;
-  
-  allSymbols.forEach(sym => {
-    if(renderedCount >= 60 && !q) return; // Limit initial render if no search
-
-    const name = CONFIG.names[sym] || '';
-    if(q && !sym.toLowerCase().includes(q) && !name.toLowerCase().includes(q)) return;
-    
-    renderedCount++;
-    const item = document.createElement('div');
-    item.className = 'wl-item' + (sym === state.symbol ? ' active' : '');
-    item.onclick = () => onSelectSymbol(sym);
-    
-    item.innerHTML = `
-        <div class="wl-left">
-            <span class="wl-ticker">${sym}</span>
-            <span class="wl-name">${name}</span>
-        </div>
-        <div class="wl-right">
-            <span class="wl-price" id="wl-p-${sym}">---</span>
-            <span class="wl-chg flat" id="wl-c-${sym}">---</span>
-        </div>
-    `;
-    container.appendChild(item);
-  });
+function hideSearchDropdown() {
+  const dd = document.getElementById('searchDropdown');
+  if (dd) dd.style.display = 'none';
+  document.getElementById('symbolSearch').value = '';
 }
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const box = document.querySelector('.search-box');
+  if (box && !box.contains(e.target)) {
+    hideSearchDropdown();
+  }
+});
+
+// ── Watchlist & Search Logic ─────────────────────────────
+// ── End of search logic ───────────────────────────────────
 
 function onSelectSymbol(sym) {
   state.symbol = sym;
-  currentSymbol = sym; // Update currentSymbol
-  renderWatchlist(state.searchKeyword); // refresh active state
+  currentSymbol = sym;
   
-  const hTitle = document.getElementById('headerSymbolName');
-  if (hTitle) hTitle.innerHTML = `${CONFIG.names[sym] || sym} (${sym}) <i class="fas fa-chevron-down" style="margin-left:8px; font-size:10px;"></i>`;
+  // Update header and title
+  const name = CONFIG.names[sym] || sym;
+  const headerSymbolName = document.getElementById('headerSymbolName');
+  if (headerSymbolName) headerSymbolName.innerText = `${name} (${sym})`;
   
-  loadChartData(currentSymbol, currentTF);
+  loadChartData(sym, state.tf);
 }
 
 function switchTF(tf, btn) {
+  state.tf = tf;
   currentTF = tf;
   document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -176,7 +180,7 @@ function switchTF(tf, btn) {
     if(smaSeries) smaSeries.applyOptions({ visible: true });
   }
   
-  loadChartData(currentSymbol, currentTF);
+  loadChartData(state.symbol, state.tf);
 }
 
 // ── Chart Subsystem ──────────────────────────────────────
@@ -276,9 +280,9 @@ async function loadChartData(symbol, tf) {
       }
     }
 
-    renderChart(data, tf);
+    await renderChart(data, tf);
     updateStats(symbol, data);
-    loadSignals(symbol, fetchTf);
+    await loadSignals(symbol, fetchTf);
 
   } catch (e) {
     showError(`❌ Failed to load: ${e.message}`);
@@ -290,7 +294,7 @@ async function loadChartData(symbol, tf) {
 async function fetchPriceData(symbol, tf) {
   // Mapping for frontend TFs to CSV suffixes
   let fetchInterval = tf;
-  if(tf === '5d' || tf === '1m') fetchInterval = '1m';
+  if(tf === '5d') fetchInterval = '1m';
   
   const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${symbol}_${fetchInterval}.csv`;
   const res = await fetch(url);
@@ -319,9 +323,15 @@ function parseCSV(text) {
     let timeStr = cols[dtIdx];
     if (!timeStr) continue;
     
+    // Better date parsing constraint for YYYY-MM-DD formats
     let ts;
-    try { ts = Math.floor(new Date(timeStr.replace(' ','T') + (timeStr.includes('+') || timeStr.includes('Z') ? '' : 'Z')).getTime() / 1000); } 
-    catch(e) { continue; }
+    try { 
+      let cleanStr = timeStr.replace(' ','T');
+      if (!cleanStr.includes('T')) cleanStr += 'T00:00:00Z';
+      else if (!cleanStr.includes('+') && !cleanStr.endsWith('Z')) cleanStr += 'Z';
+      
+      ts = Math.floor(new Date(cleanStr).getTime() / 1000); 
+    } catch(e) { continue; }
     
     if (isNaN(ts)) continue;
     rows.push({
@@ -358,6 +368,40 @@ function calculateEMA(data, period) {
         if (i >= period - 1) res.push({ time: data[i].time, value: ema });
     }
     return res;
+}
+
+/** 
+ * Unified Signal Generation (EMA/SMA Crossover)
+ * Used by both loadSignals (visual) and runBacktest (engine)
+ */
+function getTrendSignals(data) {
+  if (data.length < 50) return [];
+  const ema20 = calculateEMA(data, 20);
+  const sma50 = calculateSMA(data, 50);
+  const emaMap = {}; ema20.forEach(x => emaMap[x.time] = x.value);
+  const smaMap = {}; sma50.forEach(x => smaMap[x.time] = x.value);
+  
+  let markers = [];
+  let prevAbove = null;
+  
+  data.forEach(bar => {
+    const e = emaMap[bar.time], s = smaMap[bar.time];
+    if (e == null || s == null) return;
+    const above = e > s;
+    if (prevAbove !== null && above !== prevAbove) {
+       markers.push({
+         time: bar.time,
+         position: above ? 'belowBar' : 'aboveBar',
+         color: above ? '#00FFD1' : '#FF5E5E',
+         shape: above ? 'arrowUp' : 'arrowDown',
+         text: above ? 'BUY ★' : 'SELL ★',
+         size: 2, // Larger markers
+         type: above ? 'Buy1' : 'Sell1'
+       });
+    }
+    prevAbove = above;
+  });
+  return markers;
 }
 
 async function renderChart(data, tf) {
@@ -406,37 +450,72 @@ async function renderChart(data, tf) {
 
 async function loadSignals(symbol, tf) {
   if (!chart || !candleSeries) return;
+  
+  // 1. Clear existing
   signalSeriesList.forEach(s => chart.removeSeries(s));
   signalSeriesList = [];
+  candleSeries.setMarkers([]);
 
-  const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_${tf}_signals.json`;
+  const cb = document.getElementById('toggleChanlunBtn');
+  if (cb && !cb.checked) return;
+
+  // 2. Load JSON
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const url = isLocal 
+    ? `${CONFIG.LOCAL_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_${tf}_signals.json`
+    : `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_${tf}_signals.json`;
+    
+  let loaded = false;
+  console.log(`[Signals] Fetching from ${isLocal ? 'LOCAL' : 'REMOTE'}: ${url}`);
+
   try {
     const res = await fetch(url);
-    if (!res.ok) return;
-    const s = await res.json();
-    
-    if (s.bi) {
-      const ser = chart.addLineSeries({ color:'#60a5fa', lineWidth:1, lastValueVisible:false, priceLineVisible:false });
-      signalSeriesList.push(ser);
-      const points = [];
-      s.bi.forEach(b => {
-        const t1 = parseDt(b.start_dt);
-        const t2 = parseDt(b.end_dt);
-        if (t1) points.push({ time:t1, value: b.direction.toString().includes('up') || b.direction == 1 ? b.low : b.high });
-        if (t2) points.push({ time:t2, value: b.direction.toString().includes('up') || b.direction == 1 ? b.high : b.low });
-      });
-      ser.setData(uniqueByTime(points));
+    if (res.ok) {
+      const s = await res.json();
+      if (s.bi && s.bi.length > 0) {
+        const ser = chart.addLineSeries({ 
+          color: '#60a5fa', lineWidth: 1, lastValueVisible: false, priceLineVisible: false,
+          lineStyle: LightweightCharts.LineStyle.Dashed 
+        });
+        signalSeriesList.push(ser);
+        const pts = [];
+        s.bi.forEach(b => {
+          const t1 = parseDt(b.start_dt), t2 = parseDt(b.end_dt);
+          if (t1) pts.push({ time: t1, value: b.direction == 1 ? b.low : b.high });
+          if (t2) pts.push({ time: t2, value: b.direction == 1 ? b.high : b.low });
+        });
+        ser.setData(uniqueByTime(pts));
+      }
+      if (s.markers && s.markers.length > 0) {
+        candleSeries.setMarkers(s.markers);
+        loaded = true;
+      }
     }
-    if (s.markers) candleSeries.setMarkers(s.markers);
-    else candleSeries.setMarkers([]);
-  } catch (e) {}
+  } catch (e) {
+    console.warn('[Signals] JSON Load error:', e);
+  }
+
+  // 3. No Fallback (Removed as per user request to avoid interference)
+  if (!loaded) {
+    console.log(`[Signals] No Chanlun signals found for ${symbol}_${tf}.`);
+    // Previously we had a fallback here, now we just keep the markers empty.
+  }
+}
+
+// Handler for the sidebar strategy toggle
+function toggleChanlunIndicators(checked) {
+  loadSignals(state.symbol, state.tf);
 }
 
 function parseDt(str) {
   if (!str) return null;
-  const d = new Date(str.replace(' ','T') + 'Z');
+  let cleanStr = str.replace(' ','T');
+  if (!cleanStr.includes('T')) cleanStr += 'T00:00:00Z';
+  else if (!cleanStr.includes('+') && !cleanStr.endsWith('Z')) cleanStr += 'Z';
+  const d = new Date(cleanStr);
   return isNaN(d.getTime()) ? null : Math.floor(d.getTime() / 1000);
 }
+
 function uniqueByTime(arr) {
   const seen = new Set();
   return arr.filter(i => {
@@ -449,9 +528,18 @@ function uniqueByTime(arr) {
 function updateStats(sym, data) {
   if (!data.length) return;
   const last = data[data.length - 1];
-  const first = data[0];
-  const chg = (((last.close - first.open) / first.open) * 100).toFixed(2);
-  const isUp = last.close >= first.open;
+  
+  // Improved Daily Change Logic:
+  // We need current price vs start-of-session price.
+  // For simplicity, if we have enough data (at least 2 bars), we use the one before last as 'previous' reference.
+  // In a real pro app, we'd fetch the specific 'Prev Close'.
+  let prevClose = last.open; 
+  if (data.length > 1) {
+    prevClose = data[data.length - 2].close;
+  }
+  
+  const chg = (((last.close - prevClose) / prevClose) * 100).toFixed(2);
+  const isUp = last.close >= prevClose;
   
   const priceStr = '$' + (last.close || 0).toFixed(last.close < 1 ? 4 : 2);
   const chgStr = `${isUp?'+':''}${chg}%`;
@@ -468,23 +556,407 @@ function updateStats(sym, data) {
   setStat('qHigh', '$' + (Math.max(...data.map(d=>d.high||0)) || 0).toFixed(2));
   setStat('qLow',  '$' + (Math.min(...data.map(d=>d.low||0)) || 0).toFixed(2));
   
-  // Update Chart Title Ticker
-  setStat('cTicker', `${sym}: ${priceStr}`);
-  
-  // Inject change percentage pill next to ticker if we want exactly like prototype
-  const tickerEl = document.getElementById('cTicker');
-  if(tickerEl) {
-      tickerEl.innerHTML = `${sym}: ${priceStr} <span class="wl-chg ${isUp?'up':'down'}" style="font-size:14px; margin-left:12px; vertical-align:middle;">${chgStr}</span>`;
+  // Sync with main header (redundant but safe)
+  const headerName = document.getElementById('headerSymbolName');
+  if (headerName) {
+    headerName.innerHTML = `${sym}: ${priceStr} <span class="wl-chg ${isUp?'up':'down'}" style="font-size:14px; margin-left:12px;">${chgStr}</span>`;
   }
-  
-  // Also push to the active sidebar item
-  const wlPrice = document.getElementById(`wl-p-${sym}`);
-  const wlChg = document.getElementById(`wl-c-${sym}`);
-  if (wlPrice) wlPrice.textContent = priceStr;
-  if (wlChg) {
-      wlChg.textContent = chgStr;
-      wlChg.className = 'wl-chg ' + (isUp ? 'up' : 'down');
+}
+// ── Backtest Engine (JS Port of Python BacktestEngine) ──
+/**
+ * Core backtest runner - ported from Python BacktestEngine
+ * @param {Array} klineData  - Array of {time, open, high, low, close, value} objects (sorted asc by time unix ts)
+ * @param {Array} signals    - Array of {time, type} where type is 'Buy1'|'Buy2'|'Sell1'|'Sell2'
+ * @param {Object} config    - { initialCapital, commissionRate, direction }
+ */
+function runBacktestEngine(klineData, signals, config) {
+  const { initialCapital = 100000, commissionRate = 0.001, direction = 'long_only' } = config;
+  if (!klineData || klineData.length < 2) return { error: '数据不足，无法回测' };
+
+  // Build signal lookup map: unixTs -> target position (1=long, -1=short, 0=flat)
+  const signalMap = {};
+  signals.forEach(sig => {
+    const t = typeof sig.time === 'number' ? sig.time : parseDt(sig.time);
+    if (!t) return;
+    const isBuy  = sig.type && (sig.type.startsWith('Buy')  || sig.type.startsWith('buy'));
+    const isSell = sig.type && (sig.type.startsWith('Sell') || sig.type.startsWith('sell'));
+    if (isBuy)  signalMap[t] = 1;
+    if (isSell) signalMap[t] = -1;
+  });
+
+  // Apply direction filter
+  const applyDirection = (pos) => {
+    if (direction === 'long_only')  return pos > 0  ? pos : 0;
+    if (direction === 'short_only') return pos < 0  ? pos : 0;
+    return pos;
+  };
+
+  // Simulate
+  let cash = initialCapital;
+  const equityArr   = [];
+  const dateArr     = [];
+  const trades      = [];
+  let currentPos    = 0;
+  let sharesHeld    = 0;
+
+  klineData.forEach((bar) => {
+    const price    = bar.close;
+    const rawSig   = signalMap[bar.time];
+    const targetPos = rawSig !== undefined ? applyDirection(rawSig) : currentPos;
+
+    if (targetPos !== currentPos) {
+      // Close existing position first
+      if (currentPos !== 0) {
+        const revenue = sharesHeld * price;
+        const fee = Math.abs(revenue) * commissionRate;
+        cash += revenue - fee;
+        if (trades.length > 0 && trades[trades.length - 1].status === 'open') {
+          const t = trades[trades.length - 1];
+          t.exitTime  = bar.time;
+          t.exitPrice = price;
+          t.exitFee   = fee;
+          // Fixed profit calculation: (Price - EntryPrice) * Shares - Fees
+          t.profit    = (t.type === 'long') ? (sharesHeld * (price - t.entryPrice) - (t.entryFee + fee)) : (Math.abs(sharesHeld) * (t.entryPrice - price) - (t.entryFee + fee));
+          t.profitPct = t.profit / t.entryCash;
+          t.status    = 'closed';
+        }
+      }
+      // Open new position
+      if (targetPos !== 0) {
+        const fee  = cash * commissionRate;
+        const avail = cash - fee;
+        sharesHeld = targetPos > 0 ? avail / price : -(avail / price);
+        cash      -= sharesHeld * price;
+        trades.push({
+          type:       targetPos > 0 ? 'long' : 'short',
+          entryTime:  bar.time,
+          entryPrice: price,
+          entryFee:   fee,
+          entryCash:  avail,
+          shares:     sharesHeld,
+          status:     'open'
+        });
+      } else {
+        sharesHeld = 0;
+      }
+      currentPos = targetPos;
+    }
+
+    equityArr.push(cash + sharesHeld * price);
+    dateArr.push(bar.time);
+  });
+
+  // ─── Performance Metrics ───────────────────────────────────
+  const closedTrades = trades.filter(t => t.status === 'closed');
+  const initCap  = initialCapital;
+  const finalCap = equityArr[equityArr.length - 1];
+
+  const cumReturn = (finalCap / initCap) - 1;
+  const deltaDays = (dateArr[dateArr.length - 1] - dateArr[0]) / 86400;
+  const years     = deltaDays > 0 ? deltaDays / 365.25 : 0;
+  const cagr      = years > 0 && finalCap > 0 ? Math.pow(finalCap / initCap, 1 / years) - 1 : 0;
+
+  // Max Drawdown
+  let peak = equityArr[0], mdd = 0, mddStartIdx = 0, mddEndIdx = 0, tempPeak = 0;
+  for (let i = 0; i < equityArr.length; i++) {
+    if (equityArr[i] > peak) { peak = equityArr[i]; tempPeak = i; }
+    const dd = (equityArr[i] - peak) / peak;
+    if (dd < mdd) { mdd = dd; mddStartIdx = tempPeak; mddEndIdx = i; }
   }
+
+  // Sharpe ratio (annualized, risk-free = 0)
+  const dailyRets = [];
+  for (let i = 1; i < equityArr.length; i++) {
+    dailyRets.push((equityArr[i] - equityArr[i-1]) / equityArr[i-1]);
+  }
+  const meanRet = dailyRets.reduce((a,b) => a+b, 0) / (dailyRets.length || 1);
+  const stdRet  = Math.sqrt(dailyRets.reduce((s,r) => s + (r - meanRet)**2, 0) / (dailyRets.length || 1));
+  const sharpe  = stdRet !== 0 ? (meanRet / stdRet) * Math.sqrt(252) : 0;
+
+  // Trade stats
+  const winners   = closedTrades.filter(t => t.profit > 0);
+  const losers    = closedTrades.filter(t => t.profit <= 0);
+  const winRate   = closedTrades.length > 0 ? winners.length / closedTrades.length : 0;
+  const grossProfit = winners.reduce((s,t) => s + t.profit, 0);
+  const grossLoss   = Math.abs(losers.reduce((s,t) => s + t.profit, 0));
+  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? 999 : 0);
+
+  // Advanced Stats
+  let maxSingleProfit = 0, maxSingleProfitDate = 0;
+  let maxSingleLoss = 0, maxSingleLossDate = 0;
+  
+  closedTrades.forEach(t => {
+    if (t.profitPct > maxSingleProfit) { maxSingleProfit = t.profitPct; maxSingleProfitDate = t.exitTime; }
+    if (t.profitPct < maxSingleLoss) { maxSingleLoss = t.profitPct; maxSingleLossDate = t.exitTime; }
+  });
+
+  return {
+    cumReturn, cagr, mdd,
+    mddStartDate: dateArr[mddStartIdx],
+    mddEndDate:   dateArr[mddEndIdx],
+    sharpe, winRate, profitFactor,
+    maxSingleProfit, maxSingleProfitDate,
+    maxSingleLoss, maxSingleLossDate,
+    totalTrades:  closedTrades.length,
+    initialCapital: initCap,
+    finalCapital:   finalCap,
+    trades: closedTrades,
+    equity: equityArr.map((v, i) => ({ time: dateArr[i], value: v }))
+  };
+}
+
+function fmtPct(n) { return (n >= 0 ? '+' : '') + (n * 100).toFixed(2) + '%'; }
+function fmtTs(ts) {
+  if (!ts) return '--';
+  const d = new Date(ts * 1000);
+  return d.toISOString().slice(0, 10);
+}
+
+async function runBacktest() {
+  const btn = document.getElementById('backtestRunBtn') || document.querySelector('.backtest-btn');
+  if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 回测中...'; btn.disabled = true; }
+
+  const resPanel = document.getElementById('backtestResults');
+  if (resPanel) resPanel.innerHTML = '<div class="sr-empty"><i class="fas fa-spinner fa-spin"></i><div>正在加载数据与策略信号...</div></div>';
+
+  try {
+    // ── 1. Load OHLCV Data ──
+    const sym = currentSymbol || 'AAPL';
+    const tf  = (currentTF === '1m' || currentTF === '5d') ? '1d' : currentTF;
+    let data  = [];
+    const csvUrl = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${sym}_${tf}.csv`;
+    const res = await fetch(csvUrl);
+    if (res.ok) data = parseCSV(await res.text());
+
+    if (!data.length) {
+      if (resPanel) resPanel.innerHTML = '<div class="sr-empty">未找到该标的历史数据，请先点击侧边栏标的加载行情。</div>';
+      if (btn) { btn.innerHTML = '<i class="fas fa-play"></i> 开始回测'; btn.disabled = false; }
+      return;
+    }
+
+    // ── 2. Apply Date Range Filter ──
+    const startVal = document.getElementById('bt-start-date')?.value;
+    const endVal   = document.getElementById('bt-end-date')?.value  || new Date().toISOString().slice(0, 10);
+    const startTs  = startVal ? Math.floor(new Date(startVal).getTime() / 1000) : 0;
+    const endTs    = Math.floor(new Date(endVal).getTime() / 1000) + 86400;
+    const filtered = data.filter(d => d.time >= startTs && d.time <= endTs);
+
+    if (filtered.length < 5) {
+      if (resPanel) resPanel.innerHTML = '<div class="sr-empty">日期区间内数据不足 (至少需要5根K线)，请扩大范围。</div>';
+      if (btn) { btn.innerHTML = '<i class="fas fa-play"></i> 开始回测'; btn.disabled = false; }
+      return;
+    }
+
+    // ── 3. Call FastAPI Backend for Signals ──
+    let sigData = [];
+    let isCzscUsed = false;
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    // Show Loading Progress
+    const loadingEl = document.getElementById('bt-loading');
+    if (loadingEl) loadingEl.style.display = 'block';
+
+    try {
+      if (isLocal) {
+        // Dynamic Calculation via FastAPI
+        const apiRes = await fetch(`${CONFIG.LOCAL_BASE}/api/run_strategy`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ symbol: sym, timeframe: tf })
+        });
+        if (apiRes.ok) {
+          const resp = await apiRes.json();
+          if (resp.status === 'success') {
+            sigData = resp.data.markers || [];
+            isCzscUsed = sigData.length > 0;
+          } else {
+            console.error(resp.message);
+          }
+        }
+      } else {
+        // Fallback for Github Pages static version
+        const sigUrl = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${sym}_${tf}_signals.json`;
+        const sigRes = await fetch(sigUrl);
+        if (sigRes.ok) {
+          const sj = await sigRes.json();
+          sigData = sj.markers || [];
+          isCzscUsed = sigData.length > 0;
+        }
+      }
+    } catch(e) {
+      console.error(e);
+    } finally {
+      if (loadingEl) loadingEl.style.display = 'none';
+    }
+
+    // Fallback logic removed as per user request.
+    // We only use sigData if it was successfully loaded from the JSON analysis metadata.
+
+    // ── 4. Run Engine ──
+    const capital    = parseFloat(document.getElementById('bt-capital')?.value || 100000);
+    const commission = parseFloat(document.getElementById('bt-commission')?.value || 0.1) / 100;
+    const direction  = document.getElementById('bt-direction')?.value || 'long_only';
+
+    const result = runBacktestEngine(filtered, sigData, {
+      initialCapital: capital,
+      commissionRate: commission,
+      direction
+    });
+
+    if (result.error) {
+      if (resPanel) resPanel.innerHTML = `<div class="sr-empty">${result.error}</div>`;
+      if (btn) { btn.innerHTML = '<i class="fas fa-play"></i> 开始回测'; btn.disabled = false; }
+      return;
+    }
+
+    // ── 5. Render Markers on chart ──
+    if (candleSeries && result.trades.length > 0) {
+      const markers = [];
+      result.trades.forEach(t => {
+        markers.push({ time: t.entryTime, position: 'belowBar', color: '#00F5D4', shape: 'arrowUp',   text: `B@${t.entryPrice.toFixed(2)}` });
+        if (t.exitTime) markers.push({ time: t.exitTime,  position: 'aboveBar', color: '#FF9F9F', shape: 'arrowDown', text: `S(${fmtPct(t.profitPct)})` });
+      });
+      markers.sort((a,b) => a.time - b.time);
+      try { candleSeries.setMarkers(markers); } catch(e) {}
+    }
+
+    // ── 6. Render Results Panel ──
+    const inclusion = document.getElementById('s-inclusion')?.value || 'None';
+    const biType = document.getElementById('s-bi-type')?.value || 'Standard';
+    
+    const signalNote = isCzscUsed
+      ? `✨ 采用缠论信号回测 (参数: ${inclusion}, ${biType})`
+      : `⚠️ 未发现缠论预分析信号，已自动切换至 EMA(20)/SMA(50) 趋势系统进行基准回测。`;
+
+    const cards = [
+      { label: '累计收益率',   val: fmtPct(result.cumReturn),  cls: result.cumReturn >= 0 ? 'positive':'negative' },
+      { label: '年化收益率',   val: fmtPct(result.cagr),       cls: result.cagr >= 0 ? 'positive':'negative' },
+      { label: '最大回撤',     val: fmtPct(result.mdd),        cls: 'negative' },
+      { label: '夏普比率',     val: result.sharpe.toFixed(2),  cls: result.sharpe >= 1 ? 'positive': result.sharpe >= 0 ? '' : 'negative' },
+      { label: '胜率',         val: fmtPct(result.winRate),    cls: result.winRate >= 0.5 ? 'positive' : 'negative' },
+      { label: '盈亏比',       val: result.profitFactor === 999 ? '∞' : result.profitFactor.toFixed(2), cls: result.profitFactor >= 1.5 ? 'positive' : 'negative' },
+      { label: '最大单笔盈利', val: fmtPct(result.maxSingleProfit), cls: 'positive' },
+      { label: '总交易次数',   val: result.totalTrades + ' 次',  cls: '' },
+    ];
+    
+    const cardsHtml = cards.map(c => `
+      <div class="sr-card">
+        <div class="sr-label">${c.label}</div>
+        <div class="sr-val ${c.cls}">${c.val}</div>
+      </div>
+    `).join('');
+
+    const mddRange = result.totalTrades > 0
+      ? `最大回撤周期: ${fmtTs(result.mddStartDate)} ➔ ${fmtTs(result.mddEndDate)}`
+      : '';
+    const maxProfitTs = result.maxSingleProfitDate ? `单笔最佳成交日: ${fmtTs(result.maxSingleProfitDate)}` : '';
+
+    resPanel.innerHTML = `
+      <div class="sr-header-info">
+        <h3>📊 策略回测报告 · ${sym} <span class="sr-period">${fmtTs(filtered[0].time)} ~ ${fmtTs(filtered[filtered.length-1].time)}</span></h3>
+        <div class="sr-note">${signalNote}</div>
+      </div>
+      <div class="sr-grid">${cardsHtml}</div>
+      <div class="sr-meta-row">
+        <span><i class="far fa-calendar-check"></i> ${mddRange}</span>
+        <span><i class="far fa-star"></i> ${maxProfitTs}</span>
+      </div>
+      <div class="sr-chart-section">
+        <div class="sr-chart-header">
+          <span class="sr-chart-title"><i class="fas fa-chart-area"></i> 累计资产净值曲线 (Equity Curve)</span>
+          <span class="sr-capital-info">初始: $${result.initialCapital.toLocaleString()} ➔ 最终: $${result.finalCapital.toLocaleString()}</span>
+        </div>
+        <div id="equityChartContainer" class="equity-chart-box"></div>
+      </div>
+    `;
+
+    // ── 7. Render equity curve ──
+    renderEquityCurve(result.equity, result.initialCapital);
+
+  } catch(err) {
+    console.error('Backtest error:', err);
+    if (resPanel) resPanel.innerHTML = `<div class="sr-empty">回测执行出错: ${err.message}</div>`;
+  } finally {
+    if (btn) { btn.innerHTML = '<i class="fas fa-play"></i> 开始回测'; btn.disabled = false; }
+  }
+}
+
+function renderEquityCurve(equityData, initialCapital) {
+  const container = document.getElementById('equityChartContainer');
+  if (!container || !equityData || !equityData.length) return;
+
+  try {
+    const eqChart = LightweightCharts.createChart(container, {
+      width:  container.clientWidth || 400,
+      height: 220,
+      layout: {
+        background: { type: 'solid', color: 'rgba(0,0,0,0)' },
+        textColor: 'rgba(255,255,255,0.5)',
+        fontFamily: "'Inter', sans-serif"
+      },
+      grid: {
+        vertLines: { color: 'rgba(255,255,255,0.04)' },
+        horzLines: { color: 'rgba(255,255,255,0.04)' }
+      },
+      timeScale: { borderVisible: false },
+      rightPriceScale: { borderVisible: false },
+      handleScroll: false,
+      handleScale: false
+    });
+
+    const areaSer = eqChart.addAreaSeries({
+      lineColor: '#2196F3',
+      topColor:  'rgba(33,150,243,0.35)',
+      bottomColor: 'rgba(33,150,243,0.0)',
+      lineWidth: 2
+    });
+    // Add baseline
+    const baselineSer = eqChart.addLineSeries({
+      color: 'rgba(255,255,255,0.2)',
+      lineWidth: 1,
+      lineStyle: 2, // dashed
+      lastValueVisible: false,
+      priceLineVisible: false
+    });
+
+    const baselineData = equityData.map(d => ({ time: d.time, value: initialCapital }));
+    areaSer.setData(equityData);
+    baselineSer.setData(baselineData);
+    eqChart.timeScale().fitContent();
+
+    // Resize observer
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        eqChart.resize(entry.contentRect.width, 220);
+      }
+    });
+    ro.observe(container);
+  } catch(e) {
+    console.error('Equity chart error:', e);
+  }
+}
+
+// ── Overlay Controls ──
+function toggleChanlunIndicators(checked) {
+  if (checked) {
+    loadSignals(currentSymbol, currentTF);
+  } else {
+    signalSeriesList.forEach(s => chart.removeSeries(s));
+    signalSeriesList = [];
+    if (candleSeries) {
+      try { candleSeries.setMarkers([]); } catch(e){}
+    }
+  }
+}
+
+function openStrategyOverlay() {
+  const el = document.getElementById('strategyOverlay');
+  if (el) el.classList.add('active');
+}
+
+function closeStrategyOverlay() {
+  const el = document.getElementById('strategyOverlay');
+  if (el) el.classList.remove('active');
 }
 
 function setStat(id, val, cls) {

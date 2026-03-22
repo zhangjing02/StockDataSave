@@ -1,0 +1,468 @@
+{
+  "symbol": "MU",
+  "interval": "3mo",
+  "last_update": "2026-03-22 22:02:52",
+  "bi": [
+    {
+      "start_dt": "1984-12-01",
+      "end_dt": "1986-06-01",
+      "direction": 1,
+      "high": 2.6432424531216148,
+      "low": 0.5740979117074286
+    },
+    {
+      "start_dt": "1986-06-01",
+      "end_dt": "1987-12-01",
+      "direction": -1,
+      "high": 1.8897385612261648,
+      "low": 0.5740979117074286
+    },
+    {
+      "start_dt": "1987-12-01",
+      "end_dt": "1989-06-01",
+      "direction": 1,
+      "high": 2.463837038967066,
+      "low": 0.7415429479572851
+    },
+    {
+      "start_dt": "1989-06-01",
+      "end_dt": "1990-12-01",
+      "direction": -1,
+      "high": 2.463837038967066,
+      "low": 0.8611467767408962
+    },
+    {
+      "start_dt": "1990-12-01",
+      "end_dt": "1992-06-01",
+      "direction": 1,
+      "high": 1.6090623695987618,
+      "low": 0.8611467767408962
+    },
+    {
+      "start_dt": "1992-06-01",
+      "end_dt": "1993-12-01",
+      "direction": -1,
+      "high": 6.930825141882179,
+      "low": 1.2608324896833152
+    },
+    {
+      "start_dt": "1993-12-01",
+      "end_dt": "1995-06-01",
+      "direction": 1,
+      "high": 37.8927597418064,
+      "low": 4.206709704822399
+    },
+    {
+      "start_dt": "1995-06-01",
+      "end_dt": "1996-12-01",
+      "direction": -1,
+      "high": 37.8927597418064,
+      "low": 14.147606401254013
+    },
+    {
+      "start_dt": "1996-12-01",
+      "end_dt": "1998-06-01",
+      "direction": 1,
+      "high": 19.08707242927804,
+      "low": 9.787461621420723
+    },
+    {
+      "start_dt": "1998-06-01",
+      "end_dt": "1999-12-01",
+      "direction": -1,
+      "high": 48.75435355305672,
+      "low": 9.787461621420723
+    },
+    {
+      "start_dt": "1999-12-01",
+      "end_dt": "2001-06-01",
+      "direction": 1,
+      "high": 48.75435355305672,
+      "low": 28.41717167695364
+    },
+    {
+      "start_dt": "2001-06-01",
+      "end_dt": "2002-12-01",
+      "direction": -1,
+      "high": 43.89660516151788,
+      "low": 6.439598530603673
+    },
+    {
+      "start_dt": "2002-12-01",
+      "end_dt": "2004-06-01",
+      "direction": 1,
+      "high": 16.29413665576289,
+      "low": 6.439598530603673
+    },
+    {
+      "start_dt": "2004-06-01",
+      "end_dt": "2005-12-01",
+      "direction": -1,
+      "high": 16.73320080561047,
+      "low": 10.625340286309266
+    },
+    {
+      "start_dt": "2005-12-01",
+      "end_dt": "2007-06-01",
+      "direction": 1,
+      "high": 16.73320080561047,
+      "low": 10.049677190345951
+    },
+    {
+      "start_dt": "2007-06-01",
+      "end_dt": "2008-12-01",
+      "direction": -1,
+      "high": 13.854894324609452,
+      "low": 1.7074694948243547
+    },
+    {
+      "start_dt": "2008-12-01",
+      "end_dt": "2010-06-01",
+      "direction": 1,
+      "high": 10.039921615335304,
+      "low": 1.7074694948243547
+    },
+    {
+      "start_dt": "2010-06-01",
+      "end_dt": "2011-12-01",
+      "direction": -1,
+      "high": 10.039921615335304,
+      "low": 5.1809500034262586
+    },
+    {
+      "start_dt": "2011-12-01",
+      "end_dt": "2013-06-01",
+      "direction": 1,
+      "high": 14.703752077642012,
+      "low": 5.1809500034262586
+    },
+    {
+      "start_dt": "2013-06-01",
+      "end_dt": "2014-12-01",
+      "direction": -1,
+      "high": 35.70074683824283,
+      "low": 11.132701550080409
+    },
+    {
+      "start_dt": "2014-12-01",
+      "end_dt": "2016-06-01",
+      "direction": 1,
+      "high": 35.70074683824283,
+      "low": 11.220512580577962
+    },
+    {
+      "start_dt": "2016-06-01",
+      "end_dt": "2017-12-01",
+      "direction": -1,
+      "high": 48.25796475006439,
+      "low": 11.220512580577962
+    },
+    {
+      "start_dt": "2017-12-01",
+      "end_dt": "2019-06-01",
+      "direction": 1,
+      "high": 48.25796475006439,
+      "low": 31.35889826394048
+    },
+    {
+      "start_dt": "2019-06-01",
+      "end_dt": "2020-12-01",
+      "direction": -1,
+      "high": 90.83738592908004,
+      "low": 31.35889826394048
+    },
+    {
+      "start_dt": "2020-12-01",
+      "end_dt": "2022-06-01",
+      "direction": 1,
+      "high": 90.83738592908004,
+      "low": 50.34317115507635
+    },
+    {
+      "start_dt": "2022-06-01",
+      "end_dt": "2023-12-01",
+      "direction": -1,
+      "high": 91.93068100239516,
+      "low": 50.34317115507635
+    },
+    {
+      "start_dt": "2023-12-01",
+      "end_dt": "2025-06-01",
+      "direction": 1,
+      "high": 129.59434969465116,
+      "low": 72.28576381196439
+    }
+  ],
+  "markers": [
+    {
+      "time": "1987-09-01",
+      "peak_time": "1986-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "1989-03-01",
+      "peak_time": "1987-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "1990-09-01",
+      "peak_time": "1989-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "1992-03-01",
+      "peak_time": "1990-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "1993-09-01",
+      "peak_time": "1992-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "1995-03-01",
+      "peak_time": "1993-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "1996-09-01",
+      "peak_time": "1995-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "1998-03-01",
+      "peak_time": "1996-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "1999-09-01",
+      "peak_time": "1998-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2001-03-01",
+      "peak_time": "1999-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2002-09-01",
+      "peak_time": "2001-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2004-03-01",
+      "peak_time": "2002-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2005-09-01",
+      "peak_time": "2004-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2007-03-01",
+      "peak_time": "2005-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2008-09-01",
+      "peak_time": "2007-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2010-03-01",
+      "peak_time": "2008-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2011-09-01",
+      "peak_time": "2010-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2013-03-01",
+      "peak_time": "2011-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2014-09-01",
+      "peak_time": "2013-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2016-03-01",
+      "peak_time": "2014-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2017-09-01",
+      "peak_time": "2016-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2019-03-01",
+      "peak_time": "2017-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2020-09-01",
+      "peak_time": "2019-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2022-03-01",
+      "peak_time": "2020-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2023-09-01",
+      "peak_time": "2022-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2025-03-01",
+      "peak_time": "2023-12-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2026-03-01",
+      "peak_time": "2025-06-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    }
+  ]
+}

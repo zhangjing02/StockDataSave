@@ -1,0 +1,60 @@
+{
+  "symbol": "AVAX-USD",
+  "interval": "3mo",
+  "last_update": "2026-03-22 22:02:40",
+  "bi": [
+    {
+      "start_dt": "2020-07-01",
+      "end_dt": "2022-01-01",
+      "direction": 1,
+      "high": 117.31509399414062,
+      "low": 3.539886951446533
+    },
+    {
+      "start_dt": "2022-01-01",
+      "end_dt": "2023-07-01",
+      "direction": -1,
+      "high": 117.31509399414062,
+      "low": 8.701299667358398
+    },
+    {
+      "start_dt": "2023-07-01",
+      "end_dt": "2025-01-01",
+      "direction": 1,
+      "high": 44.97941970825195,
+      "low": 8.701299667358398
+    }
+  ],
+  "markers": [
+    {
+      "time": "2023-04-01",
+      "peak_time": "2022-01-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2024-10-01",
+      "peak_time": "2023-07-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2026-01-01",
+      "peak_time": "2025-01-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    }
+  ]
+}

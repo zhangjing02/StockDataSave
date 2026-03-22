@@ -1,0 +1,60 @@
+{
+  "symbol": "SOL-USD",
+  "interval": "3mo",
+  "last_update": "2026-03-22 22:03:00",
+  "bi": [
+    {
+      "start_dt": "2020-04-01",
+      "end_dt": "2021-10-01",
+      "direction": 1,
+      "high": 260.0621032714844,
+      "low": 0.5051940083503723
+    },
+    {
+      "start_dt": "2021-10-01",
+      "end_dt": "2023-04-01",
+      "direction": -1,
+      "high": 260.0621032714844,
+      "low": 13.379448890686035
+    },
+    {
+      "start_dt": "2023-04-01",
+      "end_dt": "2024-10-01",
+      "direction": 1,
+      "high": 263.83154296875,
+      "low": 13.379448890686035
+    }
+  ],
+  "markers": [
+    {
+      "time": "2023-01-01",
+      "peak_time": "2021-10-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2024-07-01",
+      "peak_time": "2023-04-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2026-01-01",
+      "peak_time": "2024-10-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    }
+  ]
+}

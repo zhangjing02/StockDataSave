@@ -1,0 +1,60 @@
+{
+  "symbol": "RKLB",
+  "interval": "3mo",
+  "last_update": "2026-03-22 22:02:58",
+  "bi": [
+    {
+      "start_dt": "2020-11-01",
+      "end_dt": "2022-05-01",
+      "direction": 1,
+      "high": 11.390000343322754,
+      "low": 3.5299999713897705
+    },
+    {
+      "start_dt": "2022-05-01",
+      "end_dt": "2023-11-01",
+      "direction": -1,
+      "high": 7.599999904632568,
+      "low": 3.5299999713897705
+    },
+    {
+      "start_dt": "2023-11-01",
+      "end_dt": "2025-05-01",
+      "direction": 1,
+      "high": 53.43999862670898,
+      "low": 4.119999885559082
+    }
+  ],
+  "markers": [
+    {
+      "time": "2023-08-01",
+      "peak_time": "2022-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2025-02-01",
+      "peak_time": "2023-11-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2026-02-01",
+      "peak_time": "2025-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    }
+  ]
+}

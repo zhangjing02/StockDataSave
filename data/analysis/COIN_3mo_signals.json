@@ -1,0 +1,60 @@
+{
+  "symbol": "COIN",
+  "interval": "3mo",
+  "last_update": "2026-03-22 22:02:44",
+  "bi": [
+    {
+      "start_dt": "2021-04-01",
+      "end_dt": "2022-10-01",
+      "direction": 1,
+      "high": 306.9800109863281,
+      "low": 31.82999992370605
+    },
+    {
+      "start_dt": "2022-10-01",
+      "end_dt": "2024-04-01",
+      "direction": -1,
+      "high": 268.8099975585937,
+      "low": 31.82999992370605
+    },
+    {
+      "start_dt": "2024-04-01",
+      "end_dt": "2025-10-01",
+      "direction": 1,
+      "high": 402.1600036621094,
+      "low": 194.92999267578125
+    }
+  ],
+  "markers": [
+    {
+      "time": "2024-01-01",
+      "peak_time": "2022-10-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2025-07-01",
+      "peak_time": "2024-04-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2026-01-01",
+      "peak_time": "2025-10-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    }
+  ]
+}

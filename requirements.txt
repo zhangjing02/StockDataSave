@@ -1,5 +1,5 @@
+fastapi
+uvicorn
 pandas
-yfinance
 requests
-czsc
-deep-translator
+beautifulsoup4

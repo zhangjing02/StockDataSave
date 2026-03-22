@@ -1,0 +1,60 @@
+{
+  "symbol": "SHIB-USD",
+  "interval": "3mo",
+  "last_update": "2026-03-22 22:02:58",
+  "bi": [
+    {
+      "start_dt": "2021-02-01",
+      "end_dt": "2022-08-01",
+      "direction": 1,
+      "high": 1.8000000636675395e-05,
+      "low": 0.0
+    },
+    {
+      "start_dt": "2022-08-01",
+      "end_dt": "2024-02-01",
+      "direction": -1,
+      "high": 4.5000000682193786e-05,
+      "low": 9.000000318337698e-06
+    },
+    {
+      "start_dt": "2024-02-01",
+      "end_dt": "2025-08-01",
+      "direction": 1,
+      "high": 4.5000000682193786e-05,
+      "low": 7.000000096013537e-06
+    }
+  ],
+  "markers": [
+    {
+      "time": "2023-11-01",
+      "peak_time": "2022-08-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2025-05-01",
+      "peak_time": "2024-02-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2026-02-01",
+      "peak_time": "2025-08-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    }
+  ]
+}

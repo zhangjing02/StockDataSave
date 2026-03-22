@@ -1,0 +1,26 @@
+{
+  "symbol": "ARM",
+  "interval": "3mo",
+  "last_update": "2026-03-22 22:02:39",
+  "bi": [
+    {
+      "start_dt": "2023-09-01",
+      "end_dt": "2025-03-01",
+      "direction": 1,
+      "high": 138.58999633789062,
+      "low": 46.5
+    }
+  ],
+  "markers": [
+    {
+      "time": "2026-03-01",
+      "peak_time": "2025-03-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    }
+  ]
+}

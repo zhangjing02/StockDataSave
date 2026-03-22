@@ -1,0 +1,281 @@
+{
+  "symbol": "DOGE-USD",
+  "interval": "1mo",
+  "last_update": "2026-03-22 22:02:46",
+  "bi": [
+    {
+      "start_dt": "2017-11-01",
+      "end_dt": "2018-05-01",
+      "direction": 1,
+      "high": 0.0056489999406039,
+      "low": 0.0010019999463111
+    },
+    {
+      "start_dt": "2018-05-01",
+      "end_dt": "2018-11-01",
+      "direction": -1,
+      "high": 0.0056489999406039,
+      "low": 0.0020059999078512
+    },
+    {
+      "start_dt": "2018-11-01",
+      "end_dt": "2019-05-01",
+      "direction": 1,
+      "high": 0.0039510000497102,
+      "low": 0.0020059999078512
+    },
+    {
+      "start_dt": "2019-05-01",
+      "end_dt": "2019-11-01",
+      "direction": -1,
+      "high": 0.0035999999381601,
+      "low": 0.0021279999054968
+    },
+    {
+      "start_dt": "2019-11-01",
+      "end_dt": "2020-05-01",
+      "direction": 1,
+      "high": 0.0027850000187754,
+      "low": 0.0021279999054968
+    },
+    {
+      "start_dt": "2020-05-01",
+      "end_dt": "2020-11-01",
+      "direction": -1,
+      "high": 0.0042559998109936,
+      "low": 0.0023380001075565
+    },
+    {
+      "start_dt": "2020-11-01",
+      "end_dt": "2021-05-01",
+      "direction": 1,
+      "high": 0.7375670075416565,
+      "low": 0.0024520000442862
+    },
+    {
+      "start_dt": "2021-05-01",
+      "end_dt": "2021-11-01",
+      "direction": -1,
+      "high": 0.7375670075416565,
+      "low": 0.1903440058231353
+    },
+    {
+      "start_dt": "2021-11-01",
+      "end_dt": "2022-05-01",
+      "direction": 1,
+      "high": 0.29653200507164,
+      "low": 0.0700369998812675
+    },
+    {
+      "start_dt": "2022-05-01",
+      "end_dt": "2022-11-01",
+      "direction": -1,
+      "high": 0.1572030037641525,
+      "low": 0.0700369998812675
+    },
+    {
+      "start_dt": "2022-11-01",
+      "end_dt": "2023-05-01",
+      "direction": 1,
+      "high": 0.1572030037641525,
+      "low": 0.0692239999771118
+    },
+    {
+      "start_dt": "2023-05-01",
+      "end_dt": "2023-11-01",
+      "direction": -1,
+      "high": 0.0870610028505325,
+      "low": 0.0661289989948272
+    },
+    {
+      "start_dt": "2023-11-01",
+      "end_dt": "2024-05-01",
+      "direction": 1,
+      "high": 0.1745499968528747,
+      "low": 0.0661289989948272
+    },
+    {
+      "start_dt": "2024-05-01",
+      "end_dt": "2024-11-01",
+      "direction": -1,
+      "high": 0.4774599969387054,
+      "low": 0.1203479990363121
+    },
+    {
+      "start_dt": "2024-11-01",
+      "end_dt": "2025-05-01",
+      "direction": 1,
+      "high": 0.4774599969387054,
+      "low": 0.1428229957818985
+    },
+    {
+      "start_dt": "2025-05-01",
+      "end_dt": "2025-11-01",
+      "direction": -1,
+      "high": 0.2587389945983886,
+      "low": 0.134113997220993
+    }
+  ],
+  "markers": [
+    {
+      "time": "2018-10-01",
+      "peak_time": "2018-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2019-04-01",
+      "peak_time": "2018-11-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2019-10-01",
+      "peak_time": "2019-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2020-04-01",
+      "peak_time": "2019-11-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2020-10-01",
+      "peak_time": "2020-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2021-04-01",
+      "peak_time": "2020-11-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2021-10-01",
+      "peak_time": "2021-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2022-04-01",
+      "peak_time": "2021-11-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2022-10-01",
+      "peak_time": "2022-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2023-04-01",
+      "peak_time": "2022-11-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2023-10-01",
+      "peak_time": "2023-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2024-04-01",
+      "peak_time": "2023-11-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2024-10-01",
+      "peak_time": "2024-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2025-04-01",
+      "peak_time": "2024-11-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2025-10-01",
+      "peak_time": "2025-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2026-03-01",
+      "peak_time": "2025-11-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    }
+  ]
+}

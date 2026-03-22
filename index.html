@@ -15,7 +15,7 @@
   <div class="app-background">
     <div class="app-glass-container">
       
-      <!-- Sidebar Watchlist -->
+      <!-- Sidebar -->
       <aside class="glass-sidebar">
         <div class="sidebar-top">
           <div class="user-profile">
@@ -24,33 +24,36 @@
           
           <div class="search-box">
             <i class="fas fa-search"></i>
-            <input type="text" id="symbolSearch" placeholder="Search Ticker..." oninput="onSearchInput(this.value)">
-            <div id="searchDropdown" class="search-dropdown" style="display:none;"></div>
+            <input type="text" id="symbolSearch" placeholder="搜索标单/代码..." oninput="onSearchInput(this.value)" onfocus="onSearchFocus()">
+            <div id="searchDropdown" class="search-dropdown" style="display: none;"></div>
           </div>
 
-          <div class="watchlist-header">
-            <span>Stock Watchlist</span>
-            <i class="fas fa-ellipsis-h" style="color: rgba(255,255,255,0.4); cursor:pointer;"></i>
+          <!-- Permanent Strategy Panel -->
+          <div id="strategyPanel" class="strategy-panel">
+            <div class="strategy-list-item">
+              <span class="sl-name" onclick="openStrategyOverlay()"><i class="fas fa-microchip"></i> 缠论 (配置详情)</span>
+              <label class="sl-switch" title="在图表上显示该策略的指标线">
+                <input type="checkbox" id="toggleChanlunBtn" checked onchange="toggleChanlunIndicators(this.checked)">
+                <span class="sl-slider"></span>
+              </label>
+            </div>
           </div>
-        </div>
-        
-        <div class="watchlist-items" id="watchlistContainer">
-          <!-- Populated dynamically by JS -->
         </div>
       </aside>
 
       <!-- Main Panel -->
       <main class="glass-main">
-        <!-- Top Right Header -->
         <header class="main-header">
+          <div class="header-left">
+             <span id="headerSymbolName" class="header-ticker">Apple Inc. (AAPL)</span>
+          </div>
           <div class="header-right">
             <i class="far fa-user-circle"></i>
             <i class="far fa-bell"></i>
-            <span id="headerSymbolName" class="header-ticker">Apple Inc. (AAPL) <i class="fas fa-chevron-down" style="margin-left:8px; font-size:10px;"></i></span>
           </div>
         </header>
 
-        <!-- Stats Cards Row -->
+        <!-- Stats Row -->
         <div class="stats-cards">
           <div class="stat-card">
             <div class="s-label">Price</div>
@@ -72,7 +75,7 @@
           </div>
         </div>
 
-        <!-- Chart Area -->
+        <!-- Chart Section -->
         <div class="chart-section">
           <div class="chart-toolbar">
             <div class="tf-selector">
@@ -84,37 +87,107 @@
               <button id="tf3mo" class="tf-btn" onclick="switchTF('3mo', this)">季K</button>
               <button id="tf1y" class="tf-btn" onclick="switchTF('1y', this)">年K</button>
             </div>
-            
-            <div class="indicators-selector">
-              <span><i class="fas fa-sliders-h"></i> Indicators</span>
-              <i class="fas fa-undo" style="margin-left: 12px; color: rgba(255,255,255,0.4);"></i>
+            <div class="chart-info-strip">
+               <div class="mas-info">
+                 <span class="c-ema">EMA(20): ---</span>
+                 <span class="c-sma">SMA(50): ---</span>
+               </div>
+               <div class="trade-btns">
+                 <button class="btn btn-buy">BUY</button>
+                 <button class="btn btn-sell">SELL</button>
+               </div>
             </div>
-
-            <div class="trade-actions">
-              <button class="btn-buy">BUY</button>
-              <button class="btn-sell">SELL</button>
-            </div>
-          </div>
-
-          <div class="chart-title-info">
-            <span class="c-ticker" id="cTicker">AAPL: $--</span>
-            <span class="c-mas">
-              <span class="c-ema">EMA (20)</span>
-              <span class="c-sma">SMA (50)</span>
-            </span>
           </div>
 
           <div id="tabChart" class="chart-wrapper">
-              <div id="errorBox" style="display:none; position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:100; color:#fff; background:rgba(231,76,60,0.8); padding:8px 16px; border-radius:8px; backdrop-filter:blur(4px); font-size:13px;"></div>
-              <!-- This container holds lightweight-charts -->
+              <div id="errorBox" style="display:none;"></div>
               <div id="chartContainer"></div>
-              
               <div id="loadingOverlay" class="loading-overlay" style="display:none;">
                 <div class="loader-glow"></div>
               </div>
           </div>
-        </div>
 
+          <!-- Strategy Config Overlay -->
+          <div id="strategyOverlay" class="strategy-overlay">
+            <div class="so-header">
+              <h2><i class="fas fa-microchip"></i> 缠论策略配置与回测</h2>
+              <button class="so-close-btn" onclick="closeStrategyOverlay()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="so-content">
+
+              <!-- Left: Parameters Panel -->
+              <div class="so-params">
+                <h3>策略参数</h3>
+                <div class="sp-item">
+                    <label>包含处理</label>
+                    <select id="s-inclusion">
+                        <option value="1">开启 (ON)</option>
+                        <option value="0">关闭 (OFF)</option>
+                    </select>
+                </div>
+                <div class="sp-item">
+                    <label>笔类型</label>
+                    <select id="s-bi-type">
+                        <option value="old">简单笔</option>
+                        <option value="new" selected>标准笔</option>
+                    </select>
+                </div>
+                <div class="sp-item">
+                    <label>中枢跨度</label>
+                    <input type="number" id="s-zn-span" value="5" min="3">
+                </div>
+                <div class="sp-item checkbox-item">
+                    <label>信号过滤</label>
+                    <input type="checkbox" id="s-filter" checked>
+                </div>
+
+                <h3 class="bt-section-title">回测配置</h3>
+                <div class="sp-item">
+                    <label>开始日期</label>
+                    <input type="date" id="bt-start-date" value="2023-01-01">
+                </div>
+                <div class="sp-item">
+                    <label>结束日期</label>
+                    <input type="date" id="bt-end-date">
+                </div>
+                <div class="sp-item">
+                    <label>初始资金 ($)</label>
+                    <input type="number" id="bt-capital" value="100000" min="1000" step="10000">
+                </div>
+                <div class="sp-item">
+                    <label>手续费率 (%)</label>
+                    <input type="number" id="bt-commission" value="0.1" min="0" max="5" step="0.01">
+                </div>
+                <div class="sp-item">
+                    <label>交易方向</label>
+                    <select id="bt-direction">
+                        <option value="long_only">仅做多</option>
+                        <option value="both">双向 (多/空)</option>
+                        <option value="short_only">仅做空</option>
+                    </select>
+                </div>
+
+                <button class="backtest-btn" id="backtestRunBtn" onclick="runBacktest()">
+                    <i class="fas fa-play"></i> 开始回测
+                </button>
+                <div id="bt-loading" style="display: none; color: #00F5D4; font-size: 0.85rem; padding: 10px; margin-top: 5px; text-align: center; border-radius: 4px; background: rgba(0, 245, 212, 0.1); border: 1px solid rgba(0, 245, 212, 0.3);">
+                    <i class="fas fa-spinner fa-spin" style="margin-right: 5px;"></i> 正在调用 Python 引擎进行底层信号计算...<br><span style="opacity:0.8; font-size: 0.75rem;">(预计耗时 1~2 分钟，请耐心等待)</span>
+                </div>
+              </div>
+
+              <!-- Right: Results Panel -->
+              <div class="so-results" id="backtestResults">
+                <div class="sr-empty">
+                  <i class="fas fa-chart-line" style="font-size:2rem;margin-bottom:10px;opacity:0.4;"></i>
+                  <div>配置左侧参数后点击</div>
+                  <div><strong>"开始回测"</strong>查看真实分析结果</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
       </main>
     </div>
   </div>

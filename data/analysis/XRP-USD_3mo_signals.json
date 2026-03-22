@@ -1,0 +1,94 @@
+{
+  "symbol": "XRP-USD",
+  "interval": "3mo",
+  "last_update": "2026-03-22 22:03:03",
+  "bi": [
+    {
+      "start_dt": "2017-11-01",
+      "end_dt": "2019-05-01",
+      "direction": 1,
+      "high": 3.841939926147461,
+      "low": 0.221340000629425
+    },
+    {
+      "start_dt": "2019-05-01",
+      "end_dt": "2020-11-01",
+      "direction": -1,
+      "high": 0.7680190205574036,
+      "low": 0.1748310029506683
+    },
+    {
+      "start_dt": "2020-11-01",
+      "end_dt": "2022-05-01",
+      "direction": 1,
+      "high": 0.7680190205574036,
+      "low": 0.1748310029506683
+    },
+    {
+      "start_dt": "2022-05-01",
+      "end_dt": "2023-11-01",
+      "direction": -1,
+      "high": 0.740568995475769,
+      "low": 0.2905789911746979
+    },
+    {
+      "start_dt": "2023-11-01",
+      "end_dt": "2025-05-01",
+      "direction": 1,
+      "high": 3.650209903717041,
+      "low": 0.4945420026779175
+    }
+  ],
+  "markers": [
+    {
+      "time": "2020-08-01",
+      "peak_time": "2019-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2022-02-01",
+      "peak_time": "2020-11-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2023-08-01",
+      "peak_time": "2022-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    },
+    {
+      "time": "2025-02-01",
+      "peak_time": "2023-11-01",
+      "position": "belowBar",
+      "color": "#00FFD1",
+      "shape": "arrowUp",
+      "text": "B (Conf)",
+      "type": "Buy1",
+      "size": 2
+    },
+    {
+      "time": "2026-02-01",
+      "peak_time": "2025-05-01",
+      "position": "aboveBar",
+      "color": "#FF5E5E",
+      "shape": "arrowDown",
+      "text": "S (Conf)",
+      "type": "Sell1",
+      "size": 2
+    }
+  ]
+}
