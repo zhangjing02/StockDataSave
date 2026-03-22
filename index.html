@@ -34,17 +34,86 @@
           <nav class="sidebar-nav">
             <div class="nav-item active" onclick="switchMainTab('chart')"><i class="fas fa-chart-line"></i> 行情中心</div>
             <div class="nav-item" onclick="switchMainTab('lab')"><i class="fas fa-flask"></i> 策略实验室 <span class="badge">PRO</span></div>
+            <div class="nav-item" onclick="openStrategyOverlay()"><i class="fas fa-microchip"></i> 缠论分析与回测</div>
             <div class="nav-item" onclick="switchMainTab('news')"><i class="fas fa-newspaper"></i> 财经新闻</div>
           </nav>
 
           <!-- Permanent Strategy Panel (Optional quick toggle) -->
           <div id="strategyPanel" class="strategy-panel">
             <div class="strategy-list-item">
-              <span class="sl-name"><i class="fas fa-microchip"></i> 缠论指标</span>
+              <span class="sl-name" onclick="openStrategyOverlay()"><i class="fas fa-microchip"></i> 缠论指标</span>
               <label class="sl-switch">
                 <input type="checkbox" id="toggleChanlunBtn" checked onchange="toggleChanlunIndicators(this.checked)">
                 <span class="sl-slider"></span>
               </label>
+            </div>
+
+            <!-- New: Technical Indicators Panel -->
+            <div class="indicator-panel-compact">
+              <div class="ip-header-row">
+                <span class="ip-header">技术指标方案</span>
+                <button class="ip-settings-btn" onclick="openIndicatorSettings()"><i class="fas fa-cog"></i> 参数设置</button>
+              </div>
+              
+              <div class="ip-section-title">均线系统 (MA)</div>
+              <div class="ma-grid">
+                <label class="ma-chip"><input type="checkbox" onchange="toggleMA(5, this.checked)"> 5</label>
+                <label class="ma-chip"><input type="checkbox" onchange="toggleMA(10, this.checked)"> 10</label>
+                <label class="ma-chip"><input type="checkbox" checked onchange="toggleMA(20, this.checked)"> 20</label>
+                <label class="ma-chip"><input type="checkbox" checked onchange="toggleMA(50, this.checked)"> 50</label>
+                <label class="ma-chip"><input type="checkbox" onchange="toggleMA(120, this.checked)"> 120</label>
+                <label class="ma-chip"><input type="checkbox" onchange="toggleMA(250, this.checked)"> 250</label>
+              </div>
+
+              <div class="ip-section-title">主图指标</div>
+              <div class="ind-list">
+                <div class="ind-item">
+                   <span>BOLL (布林带)</span>
+                   <label class="sl-switch">
+                     <input type="checkbox" id="toggleBOLL" onchange="toggleIndicator('BOLL', this.checked)">
+                     <span class="sl-slider"></span>
+                   </label>
+                </div>
+                <div class="ind-item">
+                   <span>筹码分布 (Chips)</span>
+                   <label class="sl-switch">
+                     <input type="checkbox" id="toggleChips" checked onchange="toggleChipsVisibility(this.checked)">
+                     <span class="sl-slider"></span>
+                   </label>
+                </div>
+              </div>
+
+              <div class="ip-section-title">副图指标 (Oscillators)</div>
+              <div class="ind-list">
+                <div class="ind-item">
+                   <span>MACD (12,26,9)</span>
+                   <label class="sl-switch">
+                     <input type="checkbox" id="toggleMACD" onchange="toggleIndicator('MACD', this.checked)">
+                     <span class="sl-slider"></span>
+                   </label>
+                </div>
+                <div class="ind-item">
+                   <span>KDJ (9,3,3)</span>
+                   <label class="sl-switch">
+                     <input type="checkbox" id="toggleKDJ" onchange="toggleIndicator('KDJ', this.checked)">
+                     <span class="sl-slider"></span>
+                   </label>
+                </div>
+                <div class="ind-item">
+                   <span>RSI (14)</span>
+                   <label class="sl-switch">
+                     <input type="checkbox" id="toggleRSI" onchange="toggleIndicator('RSI', this.checked)">
+                     <span class="sl-slider"></span>
+                   </label>
+                </div>
+                <div class="ind-item">
+                   <span>CCI (14)</span>
+                   <label class="sl-switch">
+                     <input type="checkbox" id="toggleCCI" onchange="toggleIndicator('CCI', this.checked)">
+                     <span class="sl-slider"></span>
+                   </label>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -112,8 +181,44 @@
               <div id="errorBox" style="display:none;"></div>
               <div id="chartContainer"></div>
               <div id="loadingOverlay" class="loading-overlay" style="display:none;">
-                <div class="loader-glow"></div>
-              </div>
+      <div class="loader"></div>
+      <p>正在同步云端深度数据...</p>
+    </div>
+
+    <!-- New: Indicator Settings Overlay -->
+    <div id="indSettingsOverlay" class="glass-overlay">
+      <div class="overlay-content">
+        <div class="oc-header">
+          <h3>📊 指标参数设置 (Indicator Tuning)</h3>
+          <button class="close-btn" onclick="closeIndicatorSettings()">&times;</button>
+        </div>
+        <div class="oc-body">
+          <div class="settings-grid">
+            <div class="setting-group">
+                <label>BOLL 周期 (n)</label>
+                <input type="number" id="p-boll-n" value="20" onchange="updateIndicatorParam('boll','n',this.value)">
+            </div>
+            <div class="setting-group">
+                <label>BOLL 倍数 (k)</label>
+                <input type="number" id="p-boll-k" value="2" step="0.1" onchange="updateIndicatorParam('boll','k',this.value)">
+            </div>
+            <div class="setting-group">
+                <label>KDJ 周期 (n)</label>
+                <input type="number" id="p-kdj-n" value="9" onchange="updateIndicatorParam('kdj','n',this.value)">
+            </div>
+            <div class="setting-group">
+                <label>RSI 周期 (n)</label>
+                <input type="number" id="p-rsi-n" value="14" onchange="updateIndicatorParam('rsi','n',this.value)">
+            </div>
+            <div class="setting-group">
+                <label>CCI 周期 (n)</label>
+                <input type="number" id="p-cci-n" value="14" onchange="updateIndicatorParam('cci','n',this.value)">
+            </div>
+          </div>
+          <p class="settings-tip">💡 修改参数后图表将自动重绘以应用新计算逻辑。</p>
+        </div>
+      </div>
+    </div>
           </div>
 
           <!-- Strategy Lab Tab (New) -->

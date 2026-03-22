@@ -51,6 +51,26 @@ let state = {
   wlCategory: 'stocks', // NEW: watchlist category
   searchKeyword: '',
   mainTab: 'chart', // NEW: current main tab
+  indicators: {
+    ma: { 5: false, 10: false, 20: true, 50: true, 120: false, 250: false },
+    sub: { MACD: false, RSI: false, KDJ: false, CCI: false, BOLL: false },
+    chips: true
+  },
+  params: {
+    boll: { n: 20, k: 2 },
+    kdj: { n: 9, m1: 3, m2: 3 },
+    rsi: { n: 14 },
+    cci: { n: 14 }
+  }
+};
+
+const INDICATOR_CONFIG = {
+  ma: [5, 10, 20, 50, 120, 250],
+  colors: {
+    ma5: '#ffffff', ma10: '#f1c40f', ma20: '#fca311', 
+    ma50: '#7a5af8', ma120: '#3498db', ma250: '#e91e63',
+    boll_u: '#3498db', boll_m: '#7a5af8', boll_l: '#3498db'
+  }
 };
 
 let pyodide = null;
@@ -61,6 +81,9 @@ let candleSeries, volumeSeries, emaSeries, smaSeries, areaSeries;
 let currentTF = '1m'; 
 let currentSymbol = 'AAPL';
 let signalSeriesList = [];
+let maSeriesGroup = {}; // Store all MA series
+let bollSeriesGroup = {}; // Store BOLL (Upper, Middle, Lower)
+let subCharts = {};     // Store MACD/RSI/KDJ/CCI chart instances
 
 let chartReady;
 let resolveChartReady;
@@ -197,7 +220,7 @@ function switchMainTab(tabId) {
   
   document.getElementById('tab' + tabId.charAt(0).toUpperCase() + tabId.slice(1)).style.display = 'block';
   // Match nav item index
-  const navIndexMap = { 'chart': 0, 'lab': 1, 'news': 2 };
+  const navIndexMap = { 'chart': 0, 'lab': 1, 'news': 3 };
   if(navItems[navIndexMap[tabId]]) navItems[navIndexMap[tabId]].classList.add('active');
   
   if(tabId === 'chart') {
@@ -397,9 +420,33 @@ function initChart() {
     });
     areaSeries.applyOptions({ visible: false });
 
-    // MAs per prototype
-    emaSeries = chart.addLineSeries({ color: '#fca311', lineWidth: 2, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false });
-    smaSeries = chart.addLineSeries({ color: '#7a5af8', lineWidth: 2, crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false });
+    areaSeries.applyOptions({ visible: false });
+
+    // Multi-MA initialization
+    INDICATOR_CONFIG.ma.forEach(period => {
+      maSeriesGroup[period] = chart.addLineSeries({
+        color: INDICATOR_CONFIG.colors[`ma${period}`] || '#fff',
+        lineWidth: 1,
+        crosshairMarkerVisible: false,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        title: `MA${period}`,
+        visible: state.indicators.ma[period] || false
+      });
+    });
+
+    // BOLL Series initialization
+    ['u', 'm', 'l'].forEach(key => {
+        bollSeriesGroup[key] = chart.addLineSeries({
+            color: INDICATOR_CONFIG.colors[`boll_${key}`],
+            lineWidth: 1,
+            lineStyle: key === 'm' ? 0 : 2, // Dashed for upper/lower
+            priceLineVisible: false,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
+            visible: state.indicators.sub.BOLL || false
+        });
+    });
 
     window.addEventListener('resize', () => {
       if (chart && container) {
@@ -531,6 +578,227 @@ function calculateEMA(data, period) {
     return res;
 }
 
+function calculateRSI(data, period = 14) {
+    const res = [];
+    if (data.length <= period) return res;
+    let gains = 0, losses = 0;
+    for (let i = 1; i <= period; i++) {
+        let diff = data[i].close - data[i - 1].close;
+        if (diff >= 0) gains += diff; else losses -= diff;
+    }
+    let avgGain = gains / period, avgLoss = losses / period;
+    res.push({ time: data[period].time, value: 100 - (100 / (1 + avgGain / avgLoss)) });
+
+    for (let i = period + 1; i < data.length; i++) {
+        let diff = data[i].close - data[i - 1].close;
+        let gain = diff >= 0 ? diff : 0, loss = diff < 0 ? -diff : 0;
+        avgGain = (avgGain * (period - 1) + gain) / period;
+        avgLoss = (avgLoss * (period - 1) + loss) / period;
+        res.push({ time: data[i].time, value: 100 - (100 / (1 + avgGain / avgLoss)) });
+    }
+    return res;
+}
+
+function calculateMACD(data) {
+    const ema12 = calculateEMA(data, 12);
+    const ema26 = calculateEMA(data, 26);
+    const emaMap12 = {}; ema12.forEach(d => emaMap12[d.time] = d.value);
+    
+    const diffData = [];
+    ema26.forEach(d => {
+        if (emaMap12[d.time]) diffData.push({ time: d.time, value: emaMap12[d.time] - d.value });
+    });
+    
+    const deaData = calculateEMA(diffData.map(d => ({close: d.value, time: d.time})), 9);
+    const deaMap = {}; deaData.forEach(d => deaMap[d.time] = d.value);
+    
+    const histData = [];
+    diffData.forEach(d => {
+        if (deaMap[d.time]) histData.push({ 
+            time: d.time, 
+            value: (d.value - deaMap[d.time]) * 2,
+            color: (d.value - deaMap[d.time]) >= 0 ? 'rgba(0, 245, 212, 0.5)' : 'rgba(255, 159, 159, 0.5)'
+        });
+    });
+    return { diff: diffData, dea: deaData, hist: histData };
+}
+
+function calculateBOLL(data, n = 20, k = 2) {
+    if (data.length < n) return { upper: [], middle: [], lower: [] };
+    const middle = calculateSMA(data, n);
+    const upper = [], lower = [];
+    
+    for (let i = n - 1; i < data.length; i++) {
+        let sumSq = 0;
+        const avg = middle[i - (n - 1)].value;
+        for (let j = i - (n - 1); j <= i; j++) {
+            sumSq += Math.pow(data[j].close - avg, 2);
+        }
+        const std = Math.sqrt(sumSq / n);
+        upper.push({ time: data[i].time, value: avg + k * std });
+        lower.push({ time: data[i].time, value: avg - k * std });
+    }
+    return { upper, middle, lower };
+}
+
+function calculateKDJ(data, n = 9, m1 = 3, m2 = 3) {
+    const res = { k: [], d: [], j: [] };
+    if (data.length < n) return res;
+    
+    let k = 50, d = 50;
+    for (let i = 0; i < data.length; i++) {
+        if (i < n - 1) continue;
+        const lowN = Math.min(...data.slice(i - n + 1, i + 1).map(d => d.low));
+        const highN = Math.max(...data.slice(i - n + 1, i + 1).map(d => d.high));
+        const rsv = highN === lowN ? 0 : ((data[i].close - lowN) / (highN - lowN)) * 100;
+        k = ( (m1 - 1) * k + rsv) / m1;
+        d = ( (m2 - 1) * d + k) / m2;
+        const j = 3 * k - 2 * d;
+        res.k.push({ time: data[i].time, value: k });
+        res.d.push({ time: data[i].time, value: d });
+        res.j.push({ time: data[i].time, value: j });
+    }
+    return res;
+}
+
+function calculateCCI(data, n = 14) {
+    const res = [];
+    if (data.length < n) return res;
+    for (let i = n - 1; i < data.length; i++) {
+        const slice = data.slice(i - n + 1, i + 1);
+        const tpArr = slice.map(d => (d.high + d.low + d.close) / 3);
+        const maTp = tpArr.reduce((a, b) => a + b) / n;
+        const md = tpArr.map(tp => Math.abs(tp - maTp)).reduce((a, b) => a + b) / n;
+        const cci = md === 0 ? 0 : (tpArr[n-1] - maTp) / (0.015 * md);
+        res.push({ time: data[i].time, value: cci });
+    }
+    return res;
+}
+
+function toggleMA(period, visible) {
+  state.indicators.ma[period] = visible;
+  if (maSeriesGroup[period]) maSeriesGroup[period].applyOptions({ visible });
+}
+
+function toggleIndicator(type, visible) {
+  state.indicators.sub[type] = visible;
+  renderChart(currentPriceData, state.tf);
+}
+
+function updateSubCharts(data) {
+  const container = document.getElementById('indicatorPanes');
+  if (!container) return;
+
+  // Cleanup inactive
+  Object.keys(subCharts).forEach(key => {
+    if (!state.indicators.sub[key]) {
+      const el = document.getElementById(`pane-${key}`);
+      if (el) el.remove();
+      delete subCharts[key];
+    }
+  });
+
+  // Init active
+  Object.keys(state.indicators.sub).forEach(key => {
+    if (state.indicators.sub[key] && !subCharts[key]) {
+      const pane = document.createElement('div');
+      pane.id = `pane-${key}`;
+      pane.className = 'indicator-pane';
+      container.appendChild(pane);
+      
+      const subChart = LightweightCharts.createChart(pane, {
+        width: pane.clientWidth,
+        height: 120,
+        layout: { 
+          background: { type: 'solid', color: 'transparent' }, 
+          textColor: 'rgba(255,255,255,0.4)', 
+          fontSize: 10,
+          fontFamily: "'Inter', sans-serif"
+        },
+        grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(255,255,255,0.02)' } },
+        timeScale: { visible: false },
+        rightPriceScale: { borderColor: 'transparent' },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
+      });
+      
+      subCharts[key] = { chart: subChart, series: [] };
+      
+      if (key === 'MACD') {
+        const p = state.params.macd || { f: 12, s: 26, m: 9 };
+        subCharts[key].series = [
+          subChart.addLineSeries({ color: '#fca311', lineWidth: 1, title: `DIFF`, priceLineVisible: false }),
+          subChart.addLineSeries({ color: '#7a5af8', lineWidth: 1, title: `DEA`, priceLineVisible: false }),
+          subChart.addHistogramSeries({ title: `MACD`, priceLineVisible: false })
+        ];
+      } else if (key === 'RSI') {
+        const n = state.params.rsi.n;
+        subCharts[key].series = [
+          subChart.addLineSeries({ color: '#3498db', lineWidth: 1, title: `RSI(${n})`, priceLineVisible: false })
+        ];
+      } else if (key === 'KDJ') {
+        const n = state.params.kdj.n;
+        subCharts[key].series = [
+          subChart.addLineSeries({ color: '#ffffff', lineWidth: 1, title: `K(${n})`, priceLineVisible: false }),
+          subChart.addLineSeries({ color: '#f1c40f', lineWidth: 1, title: `D`, priceLineVisible: false }),
+          subChart.addLineSeries({ color: '#e91e63', lineWidth: 1, title: `J`, priceLineVisible: false })
+        ];
+      } else if (key === 'CCI') {
+        const n = state.params.cci.n;
+        subCharts[key].series = [
+          subChart.addLineSeries({ color: '#00f5d4', lineWidth: 1, title: `CCI(${n})`, priceLineVisible: false })
+        ];
+      }
+
+      // Sync time scale
+      chart.timeScale().subscribeVisibleTimeRangeChange(range => {
+        subChart.timeScale().setVisibleRange(range);
+      });
+    }
+  });
+
+  // Set Data
+  if (state.indicators.sub.MACD && subCharts.MACD) {
+    const macdRes = calculateMACD(data);
+    subCharts.MACD.series[0].setData(macdRes.diff);
+    subCharts.MACD.series[1].setData(macdRes.dea);
+    subCharts.MACD.series[2].setData(macdRes.hist);
+  }
+  if (state.indicators.sub.RSI && subCharts.RSI) {
+    const rsiRes = calculateRSI(data, state.params.rsi.n);
+    subCharts.RSI.series[0].setData(rsiRes);
+  }
+  if (state.indicators.sub.KDJ && subCharts.KDJ) {
+    const kdjRes = calculateKDJ(data, state.params.kdj.n, state.params.kdj.m1, state.params.kdj.m2);
+    subCharts.KDJ.series[0].setData(kdjRes.k);
+    subCharts.KDJ.series[1].setData(kdjRes.d);
+    subCharts.KDJ.series[2].setData(kdjRes.j);
+  }
+  if (state.indicators.sub.CCI && subCharts.CCI) {
+    const cciRes = calculateCCI(data, state.params.cci.n);
+    subCharts.CCI.series[0].setData(cciRes);
+  }
+}
+
+// --- Parameter & Overlay Controls ---
+function openIndicatorSettings() {
+    const el = document.getElementById('indSettingsOverlay');
+    if (el) el.classList.add('active');
+}
+function closeIndicatorSettings() {
+    const el = document.getElementById('indSettingsOverlay');
+    if (el) el.classList.remove('active');
+}
+function updateIndicatorParam(ind, key, val) {
+    state.params[ind][key] = parseFloat(val);
+    // Refresh chart to apply new params
+    if (currentPriceData.length) renderChart(currentPriceData, state.tf);
+}
+function toggleChipsVisibility(visible) {
+    state.indicators.chips = visible;
+    const chipsBox = document.querySelector('.chips-box');
+    if (chipsBox) chipsBox.style.display = visible ? 'block' : 'none';
+}
+
 /** 
  * Unified Signal Generation (EMA/SMA Crossover)
  * Used by both loadSignals (visual) and runBacktest (engine)
@@ -591,20 +859,41 @@ async function renderChart(data, tf) {
     color: d.close >= d.open ? 'rgba(0, 245, 212, 0.4)' : 'rgba(255, 159, 159, 0.4)'
   })));
   
-  const emaData = calculateEMA(processedData, 20);
-  const smaData = calculateSMA(processedData, 50);
+  // Render MAs
+  INDICATOR_CONFIG.ma.forEach(p => {
+    if (maSeriesGroup[p]) {
+      const maData = calculateEMA(processedData, p);
+      maSeriesGroup[p].setData(maData);
+    }
+  });
+
+  // Render Sub Charts
+  updateSubCharts(processedData);
+
+  // Render BOLL if active
+  if (state.indicators.sub.BOLL) {
+    const bollRes = calculateBOLL(processedData, state.params.boll.n, state.params.boll.k);
+    bollSeriesGroup.u.setData(bollRes.upper);
+    bollSeriesGroup.m.setData(bollRes.middle);
+    bollSeriesGroup.l.setData(bollRes.lower);
+    ['u','m','l'].forEach(k => bollSeriesGroup[k].applyOptions({ visible: true }));
+  } else {
+    ['u','m','l'].forEach(k => bollSeriesGroup[k].applyOptions({ visible: false }));
+  }
 
   // Set MA data
-  if(emaSeries) emaSeries.setData(emaData);
-  if(smaSeries) smaSeries.setData(smaData);
+  // (Old redundant assignment removed)
 
   // Update Indicator Pills with latest values
-  const latestEma = emaData.length ? emaData[emaData.length-1].value.toFixed(2) : '--';
-  const latestSma = smaData.length ? smaData[smaData.length-1].value.toFixed(2) : '--';
+  const ma20Data = calculateEMA(processedData, 20);
+  const ma50Data = calculateEMA(processedData, 50);
+  const latestMA20 = ma20Data.length ? ma20Data[ma20Data.length-1].value.toFixed(2) : '--';
+  const latestMA50 = ma50Data.length ? ma50Data[ma50Data.length-1].value.toFixed(2) : '--';
+  
   const emaEl = document.querySelector('.c-ema');
   const smaEl = document.querySelector('.c-sma');
-  if(emaEl) emaEl.textContent = `EMA (20): ${latestEma}`;
-  if(smaEl) smaEl.textContent = `SMA (50): ${latestSma}`;
+  if(emaEl) emaEl.textContent = `MA (20): ${latestMA20}`;
+  if(smaEl) smaEl.textContent = `MA (50): ${latestMA50}`;
 
   chart.timeScale().fitContent();
 }
