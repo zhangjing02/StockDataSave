@@ -10,6 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- Pyodide for Browser Python Execution -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
 </head>
 <body>
   <div class="app-background">
@@ -28,11 +30,18 @@
             <div id="searchDropdown" class="search-dropdown" style="display: none;"></div>
           </div>
 
-          <!-- Permanent Strategy Panel -->
+          <!-- Sidebar Menu -->
+          <nav class="sidebar-nav">
+            <div class="nav-item active" onclick="switchMainTab('chart')"><i class="fas fa-chart-line"></i> 行情中心</div>
+            <div class="nav-item" onclick="switchMainTab('lab')"><i class="fas fa-flask"></i> 策略实验室 <span class="badge">PRO</span></div>
+            <div class="nav-item" onclick="switchMainTab('news')"><i class="fas fa-newspaper"></i> 财经新闻</div>
+          </nav>
+
+          <!-- Permanent Strategy Panel (Optional quick toggle) -->
           <div id="strategyPanel" class="strategy-panel">
             <div class="strategy-list-item">
-              <span class="sl-name" onclick="openStrategyOverlay()"><i class="fas fa-microchip"></i> 缠论 (配置详情)</span>
-              <label class="sl-switch" title="在图表上显示该策略的指标线">
+              <span class="sl-name"><i class="fas fa-microchip"></i> 缠论指标</span>
+              <label class="sl-switch">
                 <input type="checkbox" id="toggleChanlunBtn" checked onchange="toggleChanlunIndicators(this.checked)">
                 <span class="sl-slider"></span>
               </label>
@@ -99,12 +108,49 @@
             </div>
           </div>
 
-          <div id="tabChart" class="chart-wrapper">
+          <div id="tabChart" class="chart-tab-content">
               <div id="errorBox" style="display:none;"></div>
               <div id="chartContainer"></div>
               <div id="loadingOverlay" class="loading-overlay" style="display:none;">
                 <div class="loader-glow"></div>
               </div>
+          </div>
+
+          <!-- Strategy Lab Tab (New) -->
+          <div id="tabLab" class="chart-tab-content" style="display:none;">
+            <div class="lab-container">
+              <div class="lab-editor-side">
+                <div class="editor-header">
+                  <span><i class="fab fa-python"></i> Python 策略编辑器</span>
+                  <div class="editor-actions">
+                    <button class="btn btn-sm btn-outline" onclick="loadExample('ma')">示例: MA</button>
+                    <button class="btn btn-sm btn-primary" id="runPythonBtn" onclick="runCustomPython()">
+                      <i class="fas fa-play"></i> 执行脚本
+                    </button>
+                  </div>
+                </div>
+                <div id="pythonEditor" class="code-editor"># 写下你的 Python 策略或指标脚本
+# 系统会自动注入当前标的的历史数据为 'df' (pandas.DataFrame)
+import pandas as pd
+import numpy as np
+
+def on_calculate(df):
+    # 计算一个 20 日均线
+    df['SMA_20'] = df['Close'].rolling(window=20).mean()
+    # 返回要在图表上显示的系列 (名称, 类型, 数据列)
+    return [
+        {"name": "My_SMA", "type": "line", "color": "#00F5D4", "data": df['SMA_20'].tolist()}
+    ]
+
+# 脚本入口
+results = on_calculate(df)
+</div>
+              </div>
+              <div class="lab-console-side">
+                <div class="console-header">输出控制台</div>
+                <div id="labConsole" class="console-output">正在等待执行...</div>
+              </div>
+            </div>
           </div>
 
           <!-- Strategy Config Overlay -->

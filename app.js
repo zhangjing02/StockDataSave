@@ -49,8 +49,12 @@ let state = {
   symbol:   'AAPL',
   tf:       '1d',
   wlCategory: 'stocks', // NEW: watchlist category
-  searchKeyword: ''
+  searchKeyword: '',
+  mainTab: 'chart', // NEW: current main tab
 };
+
+let pyodide = null;
+let isPyodideLoading = false;
 
 let chart = null;
 let candleSeries, volumeSeries, emaSeries, smaSeries, areaSeries;
@@ -67,7 +71,29 @@ function bootstrap() {
   onSelectSymbol(state.symbol); // Initializes header text
   initChart();
   loadChartData(state.symbol, state.tf);
-  // Watchlist rendering removed from sidebar
+  
+  // Set default script
+  const editor = document.getElementById('pythonEditor');
+  if (editor) {
+    editor.innerText = `# 示例：计算自定义指标并返回图表
+# data_json 包含当前行情数据 (Open, High, Low, Close, Volume)
+import pandas as pd
+import json
+
+# 1. 计算 5 周期简单移动平均线
+df['SMA_5'] = df['Close'].rolling(window=5).mean()
+
+# 2. 构造返回给主图的结果
+# type: 'line', name: 指标名称, color: 线条颜色, data: 数值列表
+results = [
+    {
+        "type": "line",
+        "name": "Custom SMA 5",
+        "color": "#f1c40f",
+        "data": df['SMA_5'].tolist()
+    }
+]`;
+  }
 }
 
 if (document.readyState === 'loading') { window.addEventListener('DOMContentLoaded', bootstrap); } 
@@ -158,7 +184,138 @@ function onSelectSymbol(sym) {
   const headerSymbolName = document.getElementById('headerSymbolName');
   if (headerSymbolName) headerSymbolName.innerText = `${name} (${sym})`;
   
-  loadChartData(sym, state.tf);
+  loadChartData(state.symbol, state.tf);
+}
+
+function switchMainTab(tabId) {
+  state.mainTab = tabId;
+  const tabs = document.querySelectorAll('.chart-tab-content');
+  const navItems = document.querySelectorAll('.nav-item');
+  
+  tabs.forEach(t => t.style.display = 'none');
+  navItems.forEach(n => n.classList.remove('active'));
+  
+  document.getElementById('tab' + tabId.charAt(0).toUpperCase() + tabId.slice(1)).style.display = 'block';
+  // Match nav item index
+  const navIndexMap = { 'chart': 0, 'lab': 1, 'news': 2 };
+  if(navItems[navIndexMap[tabId]]) navItems[navIndexMap[tabId]].classList.add('active');
+  
+  if(tabId === 'chart') {
+    // Refresh chart size
+    setTimeout(() => {
+      if(chart) chart.applyOptions({ width: document.getElementById('chartContainer').clientWidth });
+    }, 100);
+  }
+}
+
+async function loadPyodideRuntime() {
+  if (pyodide) return pyodide;
+  if (isPyodideLoading) return new Promise(resolve => {
+    const check = setInterval(() => { if(pyodide) { clearInterval(check); resolve(pyodide); } }, 100);
+  });
+
+  isPyodideLoading = true;
+  const consoleEl = document.getElementById('labConsole');
+  consoleEl.innerHTML = '<div><i class="fas fa-spinner fa-spin"></i> 正在初始化 Python 运行时 (Pyodide)...</div>';
+  
+  try {
+    pyodide = await loadPyodide();
+    consoleEl.innerHTML += '<div><i class="fas fa-check"></i> 运行时已加载，正在安装依赖 (pandas, numpy)...</div>';
+    await pyodide.loadPackage(['pandas', 'numpy']);
+    consoleEl.innerHTML += '<div><i class="fas fa-check"></i> 准备就绪，可以执行脚本。</div>';
+    isPyodideLoading = false;
+    return pyodide;
+  } catch (err) {
+    consoleEl.innerHTML += `<div style="color:var(--accent-red)">❌ 初始化失败: ${err.message}</div>`;
+    isPyodideLoading = false;
+    throw err;
+  }
+}
+
+async function runCustomPython() {
+  const code = document.getElementById('pythonEditor').innerText;
+  const consoleEl = document.getElementById('labConsole');
+  consoleEl.innerHTML = '<div><i class="fas fa-play"></i> 脚本执行中...</div>';
+  
+  try {
+    const py = await loadPyodideRuntime();
+    
+    // Prepare data - convert current price data to JSON/Dict for Python
+    // We use the last 500 points for performance
+    const chartData = getVisibleData(); // Helper to get latest loaded data
+    if (!chartData || chartData.length === 0) {
+      throw new Error("无可用行情数据，请先在行情中心加载资产。");
+    }
+
+    // Inject data into Python environment
+    py.globals.set('data_json', JSON.stringify(chartData));
+    
+    const wrapperCode = `
+import pandas as pd
+import json
+import io
+
+df = pd.read_json(io.StringIO(data_json))
+# Ensure columns are standard
+df.columns = [c.capitalize() for c in df.columns]
+
+# User code start
+${code}
+# User code end
+
+# Return results as JSON
+json.dumps(results if 'results' in locals() else [])
+    `;
+
+    const resultJson = await py.runPythonAsync(wrapperCode);
+    const results = JSON.parse(resultJson);
+    
+    consoleEl.innerHTML += '<div><i class="fas fa-check"></i> 执行成功!</div>';
+    renderLabResults(results);
+    
+  } catch (err) {
+    consoleEl.innerHTML += `<div style="color:var(--accent-red)">❌ 执行错误: ${err.message}</div>`;
+    console.error(err);
+  }
+}
+
+function getVisibleData() {
+  // Try to extract data from current active series
+  // This is a simplified version, in real app we'd keep original data in state
+  return currentPriceData || []; // We'll update loadChartData to save this
+}
+
+let currentPriceData = []; // Buffer for Pyodide
+
+function renderLabResults(results) {
+  if (!chart || !results || !Array.isArray(results)) return;
+  
+  // Clear old lab indicators if any
+  if (state.labSeriesList) {
+    state.labSeriesList.forEach(s => chart.removeSeries(s));
+  }
+  state.labSeriesList = [];
+
+  results.forEach(res => {
+    if (res.type === 'line') {
+      const series = chart.addLineSeries({
+        color: res.color || '#00F5D4',
+        lineWidth: 2,
+        title: res.name
+      });
+      // Map data back to timestamps
+      const data = res.data.map((val, i) => ({
+        time: currentPriceData[i].time,
+        value: val
+      })).filter(d => d.value !== null && d.value !== undefined);
+      
+      series.setData(data);
+      state.labSeriesList.push(series);
+    }
+  });
+
+  // Switch back to chart to show results
+  setTimeout(() => switchMainTab('chart'), 500);
 }
 
 function switchTF(tf, btn) {
@@ -247,6 +404,8 @@ function initChart() {
     window.addEventListener('resize', () => {
       if (chart && container) {
         chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+        // Redraw chips on resize
+        loadChips(state.symbol);
       }
     });
     
@@ -281,8 +440,10 @@ async function loadChartData(symbol, tf) {
     }
 
     await renderChart(data, tf);
+    currentPriceData = data; // Save for Lab
     updateStats(symbol, data);
     await loadSignals(symbol, fetchTf);
+    await loadChips(symbol); // New: Load Volume Profile
 
   } catch (e) {
     showError(`❌ Failed to load: ${e.message}`);
@@ -499,6 +660,92 @@ async function loadSignals(symbol, tf) {
   if (!loaded) {
     console.log(`[Signals] No Chanlun signals found for ${symbol}_${tf}.`);
     // Previously we had a fallback here, now we just keep the markers empty.
+  }
+}
+
+// ── Volume Profile (Chips) Subsystem ───────────────────
+async function loadChips(symbol) {
+  const container = document.getElementById('chartContainer');
+  let canvas = document.getElementById('chipsCanvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.id = 'chipsCanvas';
+    canvas.style.position = 'absolute';
+    canvas.style.right = '0';
+    canvas.style.top = '0';
+    canvas.style.pointerEvents = 'none';
+    canvas.style.zIndex = '5';
+    container.appendChild(canvas);
+  }
+
+  // Handle Resize
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
+
+  const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_1d_chips.json`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+       clearChips();
+       return;
+    }
+    const chips = await res.json();
+    renderChips(chips);
+  } catch (e) {
+    console.warn('[Chips] Load error:', e);
+    clearChips();
+  }
+}
+
+function clearChips() {
+  const canvas = document.getElementById('chipsCanvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+function renderChips(data) {
+  const canvas = document.getElementById('chipsCanvas');
+  if (!canvas || !data || !data.levels || data.levels.length === 0) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!candleSeries || !chart) return;
+
+  const width = canvas.width;
+  const height = canvas.height;
+  const maxVol = Math.max(...data.levels.map(l => l.volume));
+  
+  // Volume profile usually takes right 15-20% of the chart
+  const chipWidth = width * 0.2; 
+  const startX = width - chipWidth - 60; // Offset from right scale
+
+  ctx.fillStyle = 'rgba(0, 245, 212, 0.15)'; // Mint theme
+  ctx.strokeStyle = 'rgba(0, 245, 212, 0.4)';
+
+  data.levels.forEach(level => {
+    // Coordinate conversion from price to Y pixels
+    const y = candleSeries.priceToCoordinate(level.price);
+    if (y === null) return;
+
+    const barWidth = (level.volume / maxVol) * chipWidth;
+    
+    // Draw horizontal bar
+    ctx.fillRect(startX + (chipWidth - barWidth), y - 2, barWidth, 4);
+  });
+  
+  // Label: Value Area / POC (Optional highlight)
+  const pocLevel = data.levels.reduce((prev, curr) => (prev.volume > curr.volume) ? prev : curr);
+  const pocY = candleSeries.priceToCoordinate(pocLevel.price);
+  if (pocY !== null) {
+      ctx.beginPath();
+      ctx.moveTo(startX, pocY);
+      ctx.lineTo(width - 60, pocY);
+      ctx.strokeStyle = '#fca311';
+      ctx.setLineDash([5, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
   }
 }
 

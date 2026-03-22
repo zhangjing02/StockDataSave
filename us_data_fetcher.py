@@ -14,12 +14,10 @@ os.makedirs(DATA_DIR, exist_ok=True)
 # Timeframes to fetch
 # format: (interval, period)
 TIMEFRAMES = [
-    ("1m", "7d"),    # 分时 / 5日 (Intraday)
+    ("1m", "7d"),    # 分时 / 7日 (Tiingo IEX 1min)
     ("1d", "5y"),    # 日K (Daily)
     ("1wk", "max"),  # 周K (Weekly)
-    ("1mo", "max"),  # 月K (Monthly)
-    ("3mo", "max"),  # 季K (Quarterly)
-    ("1y", "max")    # 年K (Yearly - will be resampled from 1mo)
+    ("1mo", "max")   # 月K (Monthly)
 ]
 
 TIINGO_API_KEY = os.environ.get("TIINGO_API_KEY")
@@ -57,13 +55,16 @@ def fetch_via_tiingo(ticker, interval, period):
         
         # Crypto symbols in Tiingo: btcusd instead of BTC-USD
         is_crypto = "-" in ticker
-        tiingo_ticker = ticker.replace("-", "").lower() if is_crypto else ticker.lower()
+        tiingo_ticker = ticker.replace("-", "").lower() if is_crypto else ticker.upper()
         
-        endpoint = "crypto" if is_crypto else "iex"
-        url = f"https://api.tiingo.com/tiingo/{endpoint}/{tiingo_ticker}/prices"
+        endpoint = "crypto/prices" if is_crypto else "iex"
+        url = f"https://api.tiingo.com/tiingo/{endpoint}"
+        if not is_crypto:
+            url = f"{url}/{tiingo_ticker}/prices"
         
         # Calculate startDate based on period
-        days = 2 if period == "5d" else 60 if period == "60d" else 730
+        # 1m data usually limited to last few days on free/basic tier
+        days = 7 if interval == "1m" else 730
         start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         
         params = {
@@ -73,6 +74,9 @@ def fetch_via_tiingo(ticker, interval, period):
             "format": "json"
         }
         
+        if is_crypto:
+            params["tickers"] = tiingo_ticker
+        
         response = requests.get(url, params=params)
         if response.status_code != 200:
             print(f"    Tiingo API Error: {response.status_code}")
@@ -81,15 +85,20 @@ def fetch_via_tiingo(ticker, interval, period):
         data = response.json()
         if not data:
             return None
+        
+        # Some endpoints return a list of dicts, others nested
+        if is_crypto and isinstance(data, list) and len(data) > 0:
+            data = data[0].get('priceData', [])
             
         # Convert to DataFrame
         df = pd.DataFrame(data)
+        if df.empty: return None
+        
         # Tiingo fields: date, open, high, low, close, volume...
         df['date'] = pd.to_datetime(df['date'])
         df.set_index('date', inplace=True)
         # Rename columns to match yfinance
-        col_map = {c: c.capitalize() for c in df.columns}
-        df.rename(columns=col_map, inplace=True)
+        df.columns = [c.capitalize() for c in df.columns]
         
         return df
     except Exception as e:
@@ -108,19 +117,26 @@ def fetch_data(ticker, interval, period):
         if interval in ["3mo", "1y"]:
             target_interval = "1mo"
             
-        # 1. Primary: yfinance
-        df = yf.download(ticker, period=period, interval=target_interval, progress=False)
-        
-        if df.empty or len(df) < 5:
-            # 2. Secondary: Tiingo
-            t_df = fetch_via_tiingo(ticker, target_interval, period)
-            if t_df is not None and not t_df.empty:
-                df = t_df
-                print("    Used Tiingo data source.")
+        # 1. Primary for 1m: Tiingo (yfinance 1m data is often messy or limited)
+        if interval == "1m":
+            df = fetch_via_tiingo(ticker, interval, period)
+            if df is not None and not df.empty:
+                print("    Used Tiingo for 1m data.")
             else:
-                if df.empty:
-                    print(f"  Empty data for {ticker}")
-                    return False
+                # Fallback to yfinance for 1m
+                df = yf.download(ticker, period=period, interval=interval, progress=False)
+        else:
+            # 2. For Daily/Weekly/Monthly: yfinance first
+            df = yf.download(ticker, period=period, interval=target_interval, progress=False)
+            if df.empty or len(df) < 5:
+                t_df = fetch_via_tiingo(ticker, target_interval, period)
+                if t_df is not None and not t_df.empty:
+                    df = t_df
+                    print("    Used Tiingo fallback.")
+        
+        if df is None or df.empty:
+            print(f"  Empty data for {ticker}")
+            return False
             
         # Standardize columns
         if isinstance(df.columns, pd.MultiIndex):
