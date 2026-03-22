@@ -55,18 +55,10 @@
                 <button class="ip-settings-btn" onclick="openIndicatorSettings()"><i class="fas fa-cog"></i> 参数设置</button>
               </div>
               
-              <div class="ip-section-title">均线系统 (MA)</div>
-              <div class="ma-grid">
-                <label class="ma-chip"><input type="checkbox" onchange="toggleMA(5, this.checked)"> 5</label>
-                <label class="ma-chip"><input type="checkbox" onchange="toggleMA(10, this.checked)"> 10</label>
-                <label class="ma-chip"><input type="checkbox" checked onchange="toggleMA(20, this.checked)"> 20</label>
-                <label class="ma-chip"><input type="checkbox" checked onchange="toggleMA(50, this.checked)"> 50</label>
-                <label class="ma-chip"><input type="checkbox" onchange="toggleMA(120, this.checked)"> 120</label>
-                <label class="ma-chip"><input type="checkbox" onchange="toggleMA(250, this.checked)"> 250</label>
-              </div>
-
-              <div class="ip-section-title">主图指标</div>
+              <div class="ip-section-title">主图指标 (Overlays)</div>
               <div class="ind-list">
+                <div class="ind-item">
+                   <span>BOLL (布林带)</span>
                 <div class="ind-item">
                    <span>BOLL (布林带)</span>
                    <label class="sl-switch">
@@ -166,9 +158,14 @@
               <button id="tf1y" class="tf-btn" onclick="switchTF('1y', this)">年K</button>
             </div>
             <div class="chart-info-strip">
-               <div class="mas-info">
-                 <span class="c-ema">EMA(20): ---</span>
-                 <span class="c-sma">SMA(50): ---</span>
+               <div class="ma-control-strip">
+                 <span class="ma-label">MA:</span>
+                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(5, this.checked)"> 5</label>
+                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(10, this.checked)"> 10</label>
+                 <label class="ma-pill"><input type="checkbox" checked onchange="toggleMA(20, this.checked)"> 20</label>
+                 <label class="ma-pill"><input type="checkbox" checked onchange="toggleMA(50, this.checked)"> 50</label>
+                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(120, this.checked)"> 120</label>
+                 <label class="ma-pill"><input type="checkbox" onchange="toggleMA(250, this.checked)"> 250</label>
                </div>
                <div class="trade-btns">
                  <button class="btn btn-buy">BUY</button>
@@ -177,9 +174,8 @@
             </div>
           </div>
 
-          <div id="tabChart" class="chart-tab-content">
-              <div id="errorBox" style="display:none;"></div>
               <div id="chartContainer"></div>
+              <div id="indicatorPanes"></div>
               <div id="loadingOverlay" class="loading-overlay" style="display:none;">
       <div class="loader"></div>
       <p>正在同步云端深度数据...</p>

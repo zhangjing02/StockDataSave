@@ -283,6 +283,40 @@ body {
 .ma-chip input {
   accent-color: var(--accent-green);
 }
+.ma-control-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.03);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+}
+.ma-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 700;
+  margin-right: 4px;
+}
+.ma-pill {
+  font-size: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+.ma-pill:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+}
+.ma-pill input {
+  cursor: pointer;
+  accent-color: var(--accent-green);
+}
 .ind-list {
   display: flex;
   flex-direction: column;
@@ -311,6 +345,7 @@ body {
   overflow: hidden;
   position: relative;
 }
+/* Removed old ma-grid styles */
 
 /* --- Settings Grid inside Overlay --- */
 .settings-grid {

@@ -881,21 +881,11 @@ async function renderChart(data, tf) {
     ['u','m','l'].forEach(k => bollSeriesGroup[k].applyOptions({ visible: false }));
   }
 
-  // Set MA data
-  // (Old redundant assignment removed)
+  // Note: Old .c-ema / .c-sma text updates removed as MA info is now 
+  // part of the interactive MA pills or can be added to the series legends if needed.
 
-  // Update Indicator Pills with latest values
-  const ma20Data = calculateEMA(processedData, 20);
-  const ma50Data = calculateEMA(processedData, 50);
-  const latestMA20 = ma20Data.length ? ma20Data[ma20Data.length-1].value.toFixed(2) : '--';
-  const latestMA50 = ma50Data.length ? ma50Data[ma50Data.length-1].value.toFixed(2) : '--';
-  
-  const emaEl = document.querySelector('.c-ema');
-  const smaEl = document.querySelector('.c-sma');
-  if(emaEl) emaEl.textContent = `MA (20): ${latestMA20}`;
-  if(smaEl) smaEl.textContent = `MA (50): ${latestMA50}`;
-
-  chart.timeScale().fitContent();
+  // Optional: Auto-fit only on first load or symbol change
+  // chart.timeScale().fitContent(); 
 }
 
 async function loadSignals(symbol, tf) {
