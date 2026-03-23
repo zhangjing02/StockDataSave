@@ -579,7 +579,7 @@ body {
 }
 
 #chartContainer {
-  min-height: 400px; /* Ensure main chart stays large */
+  min-height: 60vh; /* Changed from 400px to give it a much taller default size */
   flex: 1;
   order: 1;
 }
