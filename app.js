@@ -961,7 +961,10 @@ async function loadChips(symbol) {
   canvas.width = container.clientWidth;
   canvas.height = container.clientHeight;
 
-  const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_1d_chips.json`;
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const url = isLocal 
+    ? `${CONFIG.LOCAL_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_1d_chips.json`
+    : `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_1d_chips.json`;
   try {
     const res = await fetch(url);
     if (!res.ok) {
@@ -1475,15 +1478,7 @@ function toggleChanlunIndicators(checked) {
   }
 }
 
-function openStrategyOverlay() {
-  const el = document.getElementById('strategyOverlay');
-  if (el) el.classList.add('active');
-}
 
-function closeStrategyOverlay() {
-  const el = document.getElementById('strategyOverlay');
-  if (el) el.classList.remove('active');
-}
 
 function setStat(id, val, cls) {
   const el = document.getElementById(id);

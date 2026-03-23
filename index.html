@@ -34,14 +34,13 @@
           <nav class="sidebar-nav">
             <div class="nav-item active" onclick="switchMainTab('chart')"><i class="fas fa-chart-line"></i> 行情中心</div>
             <div class="nav-item" onclick="switchMainTab('lab')"><i class="fas fa-flask"></i> 策略实验室 <span class="badge">PRO</span></div>
-            <div class="nav-item" onclick="openStrategyOverlay()"><i class="fas fa-microchip"></i> 缠论分析与回测</div>
             <div class="nav-item" onclick="switchMainTab('news')"><i class="fas fa-newspaper"></i> 财经新闻</div>
           </nav>
 
           <!-- Permanent Strategy Panel (Optional quick toggle) -->
           <div id="strategyPanel" class="strategy-panel">
             <div class="strategy-list-item">
-              <span class="sl-name" onclick="openStrategyOverlay()"><i class="fas fa-microchip"></i> 缠论指标</span>
+              <span class="sl-name" onclick="switchMainTab('strategy')"><i class="fas fa-microchip"></i> 缠论指标</span>
               <label class="sl-switch">
                 <input type="checkbox" id="toggleChanlunBtn" checked onchange="toggleChanlunIndicators(this.checked)">
                 <span class="sl-slider"></span>
@@ -111,6 +110,7 @@
 
       <!-- Main Panel -->
       <main class="glass-main">
+        <div id="tabChart" class="chart-tab-content" style="display:block;">
         <header class="main-header">
           <div class="header-left">
              <span id="headerSymbolName" class="header-ticker">Apple Inc. (AAPL)</span>
@@ -147,9 +147,9 @@
         <div class="chart-section">
           <div class="chart-toolbar">
             <div class="tf-selector">
-              <button id="tf1m" class="tf-btn active" onclick="switchTF('1m', this)">分时</button>
+              <button id="tf1m" class="tf-btn" onclick="switchTF('1m', this)">分时</button>
               <button id="tf5d" class="tf-btn" onclick="switchTF('5d', this)">5日</button>
-              <button id="tf1d" class="tf-btn" onclick="switchTF('1d', this)">日K</button>
+              <button id="tf1d" class="tf-btn active" onclick="switchTF('1d', this)">日K</button>
               <button id="tf1wk" class="tf-btn" onclick="switchTF('1wk', this)">周K</button>
               <button id="tf1mo" class="tf-btn" onclick="switchTF('1mo', this)">月K</button>
               <button id="tf3mo" class="tf-btn" onclick="switchTF('3mo', this)">季K</button>
@@ -214,6 +214,7 @@
       </div>
     </div>
           </div>
+        </div>
 
           <!-- Strategy Lab Tab (New) -->
           <div id="tabLab" class="chart-tab-content" style="display:none;">
@@ -252,11 +253,15 @@ results = on_calculate(df)
             </div>
           </div>
 
-          <!-- Strategy Config Overlay -->
-          <div id="strategyOverlay" class="strategy-overlay">
+          <!-- Strategy Config Page -->
+          <div id="tabStrategy" class="chart-tab-content strategy-page" style="display:none;">
             <div class="so-header">
-              <h2><i class="fas fa-microchip"></i> 缠论策略配置与回测</h2>
-              <button class="so-close-btn" onclick="closeStrategyOverlay()"><i class="fas fa-times"></i></button>
+              <h2>
+                <button class="btn btn-sm btn-outline" style="margin-right: 15px;" onclick="switchMainTab('chart')">
+                  <i class="fas fa-arrow-left"></i> 返回图表
+                </button>
+                <i class="fas fa-microchip"></i> 缠论策略配置与回测
+              </h2>
             </div>
             <div class="so-content">
 
