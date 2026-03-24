@@ -3,3 +3,7 @@ uvicorn
 pandas
 requests
 beautifulsoup4
+yfinance
+czsc
+deep-translator
+lxml
