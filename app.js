@@ -3,7 +3,7 @@
 // ============================================================
 
 const CONFIG = {
-  RAW_BASE: 'https://raw.githubusercontent.com/zhangjing02/StockDataSave/main',
+  RAW_BASE: 'https://raw.githubusercontent.com/zhangjing02/StockDataSave/data-sync',
   LOCAL_BASE: '.', // Default for relative path
   DATA_PATH: 'data',
 
