@@ -1,8 +1,16 @@
 fastapi
 uvicorn
 pandas
+numpy
+yfinance
+czsc
+deep-translator
+lxml
+python-multipart
 requests
-beautifulsoup4
+jinja2
+aiofiles
+pydantic
 yfinance
 czsc
 deep-translator

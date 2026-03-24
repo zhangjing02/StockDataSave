@@ -12,10 +12,13 @@ const CONFIG = {
     'PLTR','SMCI','ARM','ORCL','ASML','TSM','AVGO','MU',
     'RKLB','COIN','NFLX','DIS','RIVN','BABA','NIO','XPEV',
     'BA','DAL','OXY','ADBE','NVO','IBKR','PDD','BILI',
-    'FCX','INTC','QCOM'
+    'FCX','INTC','QCOM','NBIS','CRWV','SATS','SMR','OKLO',
+    'HBM','SCCO','BZFD','BYND','LULU','DPZ','LLY','LEGN',
+    'HUYA','DOYU','TAL','ZH','LI','FFIE'
   ],
   etfs: [
-    'SPY','QQQ','IWM','SMH','ARKK','UVXY','KWEB','SOXS'
+    'SPY','QQQ','IWM','SMH','ARKK','UVXY','KWEB','SOXS',
+    'IGV','ARKG','ARKQ'
   ],
   crypto: [
     'BTC-USD','ETH-USD','BNB-USD','SOL-USD','XRP-USD',
@@ -35,9 +38,15 @@ const CONFIG = {
     'ADBE':'Adobe', 'NVO':'Novo Nordisk', 'IBKR':'Interactive Brokers',
     'PDD':'PDD Holdings', 'BILI':'Bilibili', 'FCX':'Freeport-McMoRan',
     'INTC':'Intel', 'QCOM':'Qualcomm',
+    'NBIS':'Nebius', 'CRWV':'Coreweave', 'SATS':'EchoStar', 'SMR':'NuScale Power', 
+    'OKLO':'Oklo', 'HBM':'Hudbay Minerals', 'SCCO':'Southern Copper', 
+    'BZFD':'BuzzFeed', 'BYND':'Beyond Meat', 'LULU':'Lululemon', 'DPZ':'Domino\'s', 
+    'LLY':'Eli Lilly', 'LEGN':'Legend Biotech', 'HUYA':'HUYA', 'DOYU':'DouYu', 
+    'TAL':'TAL Education', 'ZH':'Zhihu', 'LI':'Li Auto', 'FFIE':'Faraday Future',
     'SPY':'S&P 500 ETF', 'QQQ':'Nasdaq 100 ETF', 'IWM':'Russell 2000 ETF',
     'SMH':'Semiconductor ETF', 'ARKK':'ARK Innovation ETF',
     'UVXY':'VIX ETF 1.5x', 'KWEB':'China Internet ETF', 'SOXS':'Semiconductor Bear',
+    'IGV':'Tech-Software ETF', 'ARKG':'ARK Genomic ETF', 'ARKQ':'ARK Robo ETF',
     'BTC-USD':'Bitcoin', 'ETH-USD':'Ethereum', 'BNB-USD':'BNB',
     'SOL-USD':'Solana', 'XRP-USD':'XRP', 'DOGE-USD':'Dogecoin',
     'ADA-USD':'Cardano', 'AVAX-USD':'Avalanche', 'SHIB-USD':'Shiba Inu', 'DOT-USD':'Polkadot'
@@ -899,48 +908,68 @@ async function loadSignals(symbol, tf) {
   const cb = document.getElementById('toggleChanlunBtn');
   if (cb && !cb.checked) return;
 
-  // 2. Load JSON
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const url = isLocal 
-    ? `${CONFIG.LOCAL_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_${tf}_signals.json`
-    : `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_${tf}_signals.json`;
-    
+  // 2. Hybrid Load Logic
   let loaded = false;
-  console.log(`[Signals] Fetching from ${isLocal ? 'LOCAL' : 'REMOTE'}: ${url}`);
-
+  const isLocalEnv = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
   try {
-    const res = await fetch(url);
-    if (res.ok) {
-      const s = await res.json();
-      if (s.bi && s.bi.length > 0) {
-        const ser = chart.addLineSeries({ 
-          color: '#60a5fa', lineWidth: 1, lastValueVisible: false, priceLineVisible: false,
-          lineStyle: LightweightCharts.LineStyle.Dashed 
-        });
-        signalSeriesList.push(ser);
-        const pts = [];
-        s.bi.forEach(b => {
-          const t1 = parseDt(b.start_dt), t2 = parseDt(b.end_dt);
-          if (t1) pts.push({ time: t1, value: b.direction == 1 ? b.low : b.high });
-          if (t2) pts.push({ time: t2, value: b.direction == 1 ? b.high : b.low });
-        });
-        ser.setData(uniqueByTime(pts));
+    // Stage 1: Try Local API (Dynamic calculation)
+    if (isLocalEnv) {
+      console.log(`[Signals] Attempting Local API calculation...`);
+      const apiRes = await fetch(`${CONFIG.LOCAL_BASE}/api/run_strategy`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ symbol, timeframe: tf })
+      });
+      if (apiRes.ok) {
+        const resp = await apiRes.json();
+        if (resp.status === 'success') {
+          console.log(`[Signals] Local API success`);
+          renderSignalData(resp.data);
+          loaded = true;
+        }
       }
-      if (s.markers && s.markers.length > 0) {
-        candleSeries.setMarkers(s.markers);
+    }
+
+    // Stage 2: Fallback to Remote JSON (GitHub data-sync)
+    if (!loaded) {
+      const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_${tf}_signals.json`;
+      console.log(`[Signals] Fetching Remote: ${url}`);
+      const res = await fetch(url);
+      if (res.ok) {
+        const s = await res.json();
+        renderSignalData(s);
         loaded = true;
       }
     }
   } catch (e) {
-    console.warn('[Signals] JSON Load error:', e);
+    console.warn('[Signals] Hybrid load warning:', e);
   }
 
-  // 3. No Fallback (Removed as per user request to avoid interference)
-  if (!loaded) {
-    console.log(`[Signals] No Chanlun signals found for ${symbol}_${tf}.`);
-    // Previously we had a fallback here, now we just keep the markers empty.
+  if (!loaded) console.log(`[Signals] No markers found for ${symbol}_${tf}.`);
+}
+
+/** Helper to render signal data from JSON */
+function renderSignalData(s) {
+  if (s.bi && s.bi.length > 0) {
+    const ser = chart.addLineSeries({ 
+      color: '#60a5fa', lineWidth: 1, lastValueVisible: false, priceLineVisible: false,
+      lineStyle: LightweightCharts.LineStyle.Dashed 
+    });
+    signalSeriesList.push(ser);
+    const pts = [];
+    s.bi.forEach(b => {
+      const t1 = parseDt(b.start_dt), t2 = parseDt(b.end_dt);
+      if (t1) pts.push({ time: t1, value: b.direction == 1 ? b.low : b.high });
+      if (t2) pts.push({ time: t2, value: b.direction == 1 ? b.high : b.low });
+    });
+    ser.setData(uniqueByTime(pts));
+  }
+  if (s.markers && s.markers.length > 0) {
+    candleSeries.setMarkers(s.markers);
   }
 }
+
 
 // ── Volume Profile (Chips) Subsystem ───────────────────
 async function loadChips(symbol) {
@@ -961,23 +990,39 @@ async function loadChips(symbol) {
   canvas.width = container.clientWidth;
   canvas.height = container.clientHeight;
 
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const url = isLocal 
-    ? `${CONFIG.LOCAL_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_1d_chips.json`
-    : `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_1d_chips.json`;
+  const isLocalEnv = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  let loaded = false;
+
   try {
-    const res = await fetch(url);
-    if (!res.ok) {
-       clearChips();
-       return;
+    // Try Local API first if available
+    if (isLocalEnv) {
+        const localUrl = `${CONFIG.LOCAL_BASE}/api/chips?symbol=${symbol}`;
+        const localRes = await fetch(localUrl);
+        if (localRes.ok) {
+            const chips = await localRes.json();
+            renderChips(chips);
+            loaded = true;
+        }
     }
-    const chips = await res.json();
-    renderChips(chips);
+    
+    // Fallback to Remote JSON
+    if (!loaded) {
+        const remoteUrl = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_1d_chips.json`;
+        console.log(`[Chips] Fetching Remote: ${remoteUrl}`);
+        const res = await fetch(remoteUrl);
+        if (res.ok) {
+            const chips = await res.json();
+            renderChips(chips);
+            loaded = true;
+        }
+    }
   } catch (e) {
-    console.warn('[Chips] Load error:', e);
-    clearChips();
+    console.warn('[Chips] Hybrid load warning:', e);
   }
+  
+  if (!loaded) clearChips();
 }
+
 
 function clearChips() {
   const canvas = document.getElementById('chipsCanvas');
@@ -1279,15 +1324,15 @@ async function runBacktest() {
     // ── 3. Call FastAPI Backend for Signals ──
     let sigData = [];
     let isCzscUsed = false;
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isLocalEnv = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
     // Show Loading Progress
     const loadingEl = document.getElementById('bt-loading');
     if (loadingEl) loadingEl.style.display = 'block';
 
     try {
-      if (isLocal) {
-        // Dynamic Calculation via FastAPI
+      // Stage 1: Local Context
+      if (isLocalEnv) {
         const apiRes = await fetch(`${CONFIG.LOCAL_BASE}/api/run_strategy`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
@@ -1297,21 +1342,21 @@ async function runBacktest() {
           const resp = await apiRes.json();
           if (resp.status === 'success') {
             sigData = resp.data.markers || [];
-            isCzscUsed = sigData.length > 0;
-          } else {
-            console.error(resp.message);
           }
         }
-      } else {
-        // Fallback for Github Pages static version
+      }
+
+      // Stage 2: Remote Fallback
+      if (sigData.length === 0) {
         const sigUrl = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${sym}_${tf}_signals.json`;
+        console.log(`[Backtest] Fetching remote signals: ${sigUrl}`);
         const sigRes = await fetch(sigUrl);
         if (sigRes.ok) {
           const sj = await sigRes.json();
           sigData = sj.markers || [];
-          isCzscUsed = sigData.length > 0;
         }
       }
+      isCzscUsed = sigData.length > 0;
     } catch(e) {
       console.error(e);
     } finally {
