@@ -93,6 +93,9 @@ let signalSeriesList = [];
 let maSeriesGroup = {}; // Store all MA series
 let bollSeriesGroup = {}; // Store BOLL (Upper, Middle, Lower)
 let subCharts = {};     // Store MACD/RSI/KDJ/CCI chart instances
+let marketInfo = {};    // NEW: global market metadata (floatShares, etc.)
+let chipHistory = [];   // NEW: pre-calculated distributions per bar
+let lastChipIndex = -1; // Track which index is currently shown
 
 let chartReady;
 let resolveChartReady;
@@ -102,7 +105,9 @@ chartReady = new Promise(resolve => { resolveChartReady = resolve; });
 function bootstrap() {
   onSelectSymbol(state.symbol); // Initializes header text
   initChart();
-  loadChartData(state.symbol, state.tf);
+  loadMarketInfo().then(() => {
+      loadChartData(state.symbol, state.tf);
+  });
   
   // Set default script
   const editor = document.getElementById('pythonEditor');
@@ -551,13 +556,15 @@ function parseCSV(text) {
     } catch(e) { continue; }
     
     if (isNaN(ts)) continue;
+    const vol = vIdx >= 0 ? parseFloat(cols[vIdx]) : 0;
     rows.push({
       time: ts,
       open: parseFloat(cols[oIdx]),
       high: parseFloat(cols[hIdx]),
       low:  parseFloat(cols[lIdx]),
       close:parseFloat(cols[cIdx]),
-      value:vIdx >= 0 ? parseFloat(cols[vIdx]) : 0
+      value: vol,   // for volumeSeries histogram
+      volume: vol   // for calculateCYQ chips engine
     });
   }
   return rows.sort((a,b) => a.time - b.time);
@@ -973,54 +980,160 @@ function renderSignalData(s) {
 
 // ── Volume Profile (Chips) Subsystem ───────────────────
 async function loadChips(symbol) {
+  // chartContainer is the div that LightweightCharts renders into
   const container = document.getElementById('chartContainer');
+  if (!container) { console.error('[Chips] #chartContainer not found!'); return; }
+  
   let canvas = document.getElementById('chipsCanvas');
   if (!canvas) {
     canvas = document.createElement('canvas');
     canvas.id = 'chipsCanvas';
     canvas.style.position = 'absolute';
-    canvas.style.right = '0';
+    canvas.style.left = '0';
     canvas.style.top = '0';
     canvas.style.pointerEvents = 'none';
-    canvas.style.zIndex = '5';
+    canvas.style.zIndex = '10';
+    // Make sure parent is positioned so absolute child works
+    container.style.position = 'relative';
+    container.style.overflow = 'visible';
     container.appendChild(canvas);
+    console.log('[Chips] Canvas created inside #chartContainer.');
   }
 
-  // Handle Resize
-  canvas.width = container.clientWidth;
-  canvas.height = container.clientHeight;
+  // Pixel dimensions must match the container (not CSS %)
+  canvas.width = container.clientWidth || container.offsetWidth;
+  canvas.height = container.clientHeight || container.offsetHeight;
+  console.log(`[Chips] Canvas size: ${canvas.width}x${canvas.height}`);
 
-  const isLocalEnv = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  // Set up hover listener if not already done
+  if (!chart._hasChipListener) {
+      chart.subscribeCrosshairMove(param => {
+          if (!param || param.logical === undefined || !chipHistory) return;
+          
+          // Use logical index directly from LightweightCharts
+          const index = Math.floor(param.logical);
+          if (index >= 0 && index < chipHistory.length) {
+              lastChipIndex = index;
+              renderChips(chipHistory[index]);
+          }
+      });
+      chart._hasChipListener = true;
+  }
+
+  // Try pre-generated remote JSON first (silent skip if not found)
   let loaded = false;
-
   try {
-    // Try Local API first if available
-    if (isLocalEnv) {
-        const localUrl = `${CONFIG.LOCAL_BASE}/api/chips?symbol=${symbol}`;
-        const localRes = await fetch(localUrl);
-        if (localRes.ok) {
-            const chips = await localRes.json();
-            renderChips(chips);
-            loaded = true;
-        }
+    const remoteUrl = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_1d_chips.json`;
+    const res = await fetch(remoteUrl);
+    if (res.ok) {
+      const chipsData = await res.json();
+      // Remote file stores full history array or single snapshot
+      if (Array.isArray(chipsData)) {
+        chipHistory = chipsData;
+        lastChipIndex = chipHistory.length - 1;
+        renderChips(chipHistory[lastChipIndex]);
+      } else {
+        renderChips(chipsData);
+      }
+      loaded = true;
     }
-    
-    // Fallback to Remote JSON
-    if (!loaded) {
-        const remoteUrl = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_1d_chips.json`;
-        console.log(`[Chips] Fetching Remote: ${remoteUrl}`);
-        const res = await fetch(remoteUrl);
-        if (res.ok) {
-            const chips = await res.json();
-            renderChips(chips);
-            loaded = true;
-        }
+    // else: 404 is expected until server generates files – skip silently
+  } catch (_) { /* network error – skip silently */ }
+
+  // Always compute locally — remote file just used as a fast cache hint
+  if (!loaded) {
+    const data = (currentPriceData || []).filter(d => d.volume > 0);
+    if (data.length > 0) {
+      const info = marketInfo[symbol] || {};
+      const floatShares = info.floatShares || (info.type === 'crypto' ? null : 1_000_000_000);
+      chipHistory    = calculateCYQ(data, floatShares);
+      lastChipIndex  = chipHistory.length - 1;
+      renderChips(chipHistory[lastChipIndex]);
+      loaded = true;
     }
-  } catch (e) {
-    console.warn('[Chips] Hybrid load warning:', e);
   }
-  
+
   if (!loaded) clearChips();
+}
+
+async function loadMarketInfo() {
+    try {
+        const url = `${CONFIG.LOCAL_BASE}/data/market_info.json`;
+        const res = await fetch(url);
+        if (res.ok) {
+            marketInfo = await res.json();
+            console.log('[MarketInfo] Loaded metadata.');
+        }
+    } catch (e) {
+        console.warn('[MarketInfo] Failed to load metadata:', e);
+    }
+}
+
+/** 
+ * CYQ Algorithm (Cost Distribution)
+ * P[price] = P[price] * (1 - TodayTurnover) + TodayVolumeDist
+ */
+function calculateCYQ(ohlcv, floatShares) {
+    if (!ohlcv || ohlcv.length === 0) return [];
+    
+    const history = [];
+    let currentDist = new Map(); // Price -> Volume
+    
+    // Determine step size (bin size) - 100 bins for the whole range
+    let lows = ohlcv.map(d => d.low);
+    let highs = ohlcv.map(d => d.high);
+    let minP = Math.min(...lows);
+    let maxP = Math.max(...highs);
+    let step = (maxP - minP) / 100;
+    if (step <= 0) step = 0.01;
+    
+    console.log(`[Chips] Range: ${minP}-${maxP}, Step: ${step}`);
+    
+    // For Crypto or missing float, use a default decay rate (e.g. 2% daily)
+    const fixedDecay = floatShares ? null : 0.02;
+
+    for (let i = 0; i < ohlcv.length; i++) {
+        const bar = ohlcv[i];
+        const turnover = fixedDecay || Math.min(0.3, bar.volume / floatShares || 0.05); // Cap turnover at 30% for stability
+        const decay = 1 - turnover;
+        
+        // 1. Decay existing chips
+        for (let [price, vol] of currentDist) {
+            currentDist.set(price, vol * decay);
+        }
+        
+        // 2. Add today's volume (simplified: spread across High-Low range)
+        const range = Math.max(0.001, bar.high - bar.low);
+        let barBins = Math.ceil(range / step);
+        if (barBins < 1) barBins = 1;
+        const volPerBin = bar.volume / barBins;
+        
+        for (let h = bar.low; h <= bar.high + 0.0001; h += step) {
+            const priceBin = Math.round(h / step) * step;
+            const existing = currentDist.get(priceBin) || 0;
+            currentDist.set(priceBin, existing + volPerBin);
+        }
+        
+        // 3. Save snapshot (Clone map to objects)
+        const levels = [];
+        for (let [price, volume] of currentDist) {
+            if (volume > 0.000001) {
+                levels.push({ price: Number(price), volume: Number(volume) });
+            }
+        }
+        
+        history.push({
+            date: bar.time,
+            levels: levels
+        });
+        
+        if (i === ohlcv.length - 1) {
+            console.log(`[Chips] Final bar sample: ${levels.length} levels, first:`, levels[0]);
+        }
+    }
+    console.log(`[Chips] CALC DONE: ${history.length} bars.`);
+    return history;
 }
 
 
@@ -1032,47 +1145,110 @@ function clearChips() {
   }
 }
 
-function renderChips(data) {
-  const canvas = document.getElementById('chipsCanvas');
-  if (!canvas || !data || !data.levels || data.levels.length === 0) return;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+/**
+ * Called by all indicator toggle checkboxes in the sidebar.
+ * @param {string} key  - 'chips' | 'BOLL' | 'MACD' | 'RSI' | 'KDJ' | 'CCI'
+ * @param {boolean} on  - new toggle state
+ */
+function toggleIndicator(key, on) {
+  if (key === 'chips') {
+    state.indicators.chips = on;
+    if (on) {
+      // Re-render last known chip frame
+      if (chipHistory && chipHistory.length > 0 && lastChipIndex >= 0) {
+        renderChips(chipHistory[lastChipIndex]);
+      } else {
+        loadChips(state.symbol);
+      }
+    } else {
+      clearChips();
+    }
+    return;
+  }
 
+  if (key === 'BOLL') {
+    state.indicators.sub.BOLL = on;
+    ['u','m','l'].forEach(k => bollSeriesGroup[k]?.applyOptions({ visible: on }));
+    return;
+  }
+
+  // MACD / RSI / KDJ / CCI – sub-chart toggles
+  if (state.indicators.sub.hasOwnProperty(key)) {
+    state.indicators.sub[key] = on;
+    updateSubCharts(currentPriceData || []);
+    return;
+  }
+}
+
+
+function renderChips(data) {
+  if (!state.indicators.chips) return;          // respect toggle
+  const canvas = document.getElementById('chipsCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const pxWidth  = canvas.width;
+  const pxHeight = canvas.height;
+
+  if (pxWidth === 0 || pxHeight === 0) return;
+
+  const levels = data?.levels || [];
+  if (levels.length === 0) return;
+
+  ctx.clearRect(0, 0, pxWidth, pxHeight);
   if (!candleSeries || !chart) return;
 
-  const width = canvas.width;
-  const height = canvas.height;
-  const maxVol = Math.max(...data.levels.map(l => l.volume));
-  
-  // Volume profile usually takes right 15-20% of the chart
-  const chipWidth = width * 0.2; 
-  const startX = width - chipWidth - 60; // Offset from right scale
+  // ── current price for color split ─────────────────────
+  const barData = (currentPriceData || []);
+  const currentPrice = barData[lastChipIndex]?.close
+                    || barData[barData.length - 1]?.close || 0;
 
-  ctx.fillStyle = 'rgba(0, 245, 212, 0.15)'; // Mint theme
-  ctx.strokeStyle = 'rgba(0, 245, 212, 0.4)';
+  const maxVol = Math.max(...levels.map(l => l.volume));
 
-  data.levels.forEach(level => {
-    // Coordinate conversion from price to Y pixels
+  // ── geometry ──────────────────────────────────────────
+  // Draw a 15%-wide profile that sits immediately left of the price scale
+  const priceScaleW  = chart.priceScale('right').width() || 60;
+  const chartAreaW   = pxWidth - priceScaleW;
+  const profileMaxW  = chartAreaW * 0.15;     // 15% of chart area
+  const rightEdge    = chartAreaW;            // left edge of price scale
+
+  // ── bars ──────────────────────────────────────────────
+  levels.forEach(level => {
     const y = candleSeries.priceToCoordinate(level.price);
-    if (y === null) return;
+    if (y === null || y < 0 || y > pxHeight) return;
 
-    const barWidth = (level.volume / maxVol) * chipWidth;
-    
-    // Draw horizontal bar
-    ctx.fillRect(startX + (chipWidth - barWidth), y - 2, barWidth, 4);
+    const norm     = Math.sqrt(level.volume / maxVol);   // sqrt for better shape
+    const barW     = norm * profileMaxW;
+    const barH     = 3;                                  // px per price bin
+
+    ctx.fillStyle = level.price < currentPrice
+      ? 'rgba(220, 60, 60, 0.55)'    // red  – below current (profit zone)
+      : 'rgba(30, 180, 100, 0.55)';  // green – above current (resistance)
+
+    ctx.fillRect(rightEdge - barW, y - barH / 2, barW, barH);
   });
-  
-  // Label: Value Area / POC (Optional highlight)
-  const pocLevel = data.levels.reduce((prev, curr) => (prev.volume > curr.volume) ? prev : curr);
-  const pocY = candleSeries.priceToCoordinate(pocLevel.price);
-  if (pocY !== null) {
-      ctx.beginPath();
-      ctx.moveTo(startX, pocY);
-      ctx.lineTo(width - 60, pocY);
-      ctx.strokeStyle = '#fca311';
-      ctx.setLineDash([5, 5]);
-      ctx.stroke();
-      ctx.setLineDash([]);
+
+  // ── POC line (highest volume price) ───────────────────
+  const poc  = levels.reduce((a, b) => (a.volume > b.volume ? a : b));
+  const pocY = candleSeries.priceToCoordinate(poc.price);
+  if (pocY !== null && pocY >= 0 && pocY <= pxHeight) {
+    const lineLeft = rightEdge - profileMaxW;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash([6, 3]);
+    ctx.strokeStyle = '#fbbf24';   // amber
+    ctx.lineWidth   = 1.5;
+    ctx.moveTo(lineLeft, pocY);
+    ctx.lineTo(rightEdge, pocY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // POC label
+    ctx.font         = '10px Inter, sans-serif';
+    ctx.fillStyle    = '#fbbf24';
+    ctx.textAlign    = 'right';
+    ctx.fillText(`POC ${poc.price.toFixed(2)}`, rightEdge - 2, pocY - 3);
+    ctx.restore();
   }
 }
 
