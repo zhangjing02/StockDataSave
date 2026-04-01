@@ -3,7 +3,7 @@ name: Daily Stock Data Update (CZSC Format)
 on:
   schedule:
     # 每天美东时间晚上 17:00 运行 (相当于 UTC 21:00) 确保美股已收盘
-    - cron: '0 21 * * 1-5'
+    - cron: '0 22 * * 1-5'
   workflow_dispatch:
     # 允许手动触发
     inputs:

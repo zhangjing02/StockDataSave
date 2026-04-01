@@ -1017,3 +1017,110 @@ input:checked + .sl-slider:before { transform: translateX(16px); background-colo
     font-size: 32px;
     opacity: 0.3;
 }
+
+/* ── News Tab Styles ── */
+.news-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.news-header-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.news-header-strip h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.news-header-strip h2 i {
+    color: var(--accent-green);
+}
+
+.news-refresh-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.news-refresh-btn:hover {
+    background: var(--glass-hover);
+    color: var(--text-primary);
+    border-color: var(--accent-green);
+}
+
+.news-content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+/* Markdown Rendering Polish */
+.markdown-body {
+    color: var(--text-primary);
+    line-height: 1.8;
+    font-size: 15px;
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+    color: var(--accent-green);
+    margin: 24px 0 16px 0;
+    font-weight: 700;
+}
+
+.markdown-body h1 { font-size: 24px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; }
+.markdown-body h2 { font-size: 20px; }
+.markdown-body h3 { font-size: 17px; }
+
+.markdown-body p { margin-bottom: 16px; opacity: 0.9; }
+
+.markdown-body ul, .markdown-body ol {
+    margin-bottom: 16px;
+    padding-left: 24px;
+}
+
+.markdown-body li { margin-bottom: 8px; }
+
+.markdown-body blockquote {
+    padding: 0 16px;
+    color: var(--text-secondary);
+    border-left: 4px solid var(--accent-green);
+    background: rgba(0, 245, 212, 0.05);
+    margin-bottom: 16px;
+}
+
+/* Status Messages */
+.news-loading, .news-empty, .news-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    gap: 16px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    text-align: center;
+}
+
+.news-loading i { font-size: 24px; color: var(--accent-green); }
+.news-empty i { font-size: 32px; opacity: 0.3; }
+.news-error { color: var(--accent-red); }

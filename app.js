@@ -53,6 +53,15 @@ const CONFIG = {
   }
 };
 
+function getCacheUrl(url) {
+  if (url.includes('raw.githubusercontent.com')) {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}t=${Date.now()}`;
+  }
+  return url;
+}
+
+
 // ── State ────────────────────────────────────────────────
 let state = {
   symbol:   'AAPL',
@@ -242,6 +251,8 @@ function switchMainTab(tabId) {
     setTimeout(() => {
       if(chart) chart.applyOptions({ width: document.getElementById('chartContainer').clientWidth });
     }, 100);
+  } else if (tabId === 'news') {
+    loadNews();
   }
 }
 
@@ -518,7 +529,7 @@ async function fetchPriceData(symbol, tf) {
   let fetchInterval = tf;
   if(tf === '5d') fetchInterval = '1m';
   
-  const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${symbol}_${fetchInterval}.csv`;
+  const url = getCacheUrl(`${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${symbol}_${fetchInterval}.csv`);
   const res = await fetch(url);
   if (!res.ok) return [];
   const text = await res.text();
@@ -940,7 +951,7 @@ async function loadSignals(symbol, tf) {
 
     // Stage 2: Fallback to Remote JSON (GitHub data-sync)
     if (!loaded) {
-      const url = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_${tf}_signals.json`;
+      const url = getCacheUrl(`${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${symbol}_${tf}_signals.json`);
       console.log(`[Signals] Fetching Remote: ${url}`);
       const res = await fetch(url);
       if (res.ok) {
@@ -1059,7 +1070,9 @@ async function loadChips(symbol) {
 
 async function loadMarketInfo() {
     try {
-        const url = `${CONFIG.LOCAL_BASE}/data/market_info.json`;
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const base = isLocal ? CONFIG.LOCAL_BASE : CONFIG.RAW_BASE;
+        const url = getCacheUrl(`${base}/data/market_info.json`);
         const res = await fetch(url);
         if (res.ok) {
             marketInfo = await res.json();
@@ -1474,7 +1487,7 @@ async function runBacktest() {
     const sym = currentSymbol || 'AAPL';
     const tf  = (currentTF === '1m' || currentTF === '5d') ? '1d' : currentTF;
     let data  = [];
-    const csvUrl = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${sym}_${tf}.csv`;
+    const csvUrl = getCacheUrl(`${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/${sym}_${tf}.csv`);
     const res = await fetch(csvUrl);
     if (res.ok) data = parseCSV(await res.text());
 
@@ -1524,7 +1537,7 @@ async function runBacktest() {
 
       // Stage 2: Remote Fallback
       if (sigData.length === 0) {
-        const sigUrl = `${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${sym}_${tf}_signals.json`;
+        const sigUrl = getCacheUrl(`${CONFIG.RAW_BASE}/${CONFIG.DATA_PATH}/analysis/${sym}_${tf}_signals.json`);
         console.log(`[Backtest] Fetching remote signals: ${sigUrl}`);
         const sigRes = await fetch(sigUrl);
         if (sigRes.ok) {
@@ -1721,4 +1734,34 @@ function showError(msg) {
 function hideError() {
   const err = document.getElementById('errorBox');
   if (err) err.style.display = 'none';
+}
+
+// ── News Integration ──
+async function loadNews() {
+  const newsContainer = document.getElementById('newsContent');
+  if (!newsContainer) return;
+  
+  newsContainer.innerHTML = '<div class="news-loading"><i class="fas fa-spinner fa-spin"></i> 正在从云端加载今日财经简报...</div>';
+  
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const url = getCacheUrl(`${CONFIG.RAW_BASE}/data/news/${today}.md`);
+    
+    const res = await fetch(url);
+    if (!res.ok) {
+        newsContainer.innerHTML = `<div class="news-empty"><i class="far fa-calendar-times"></i> 今日新闻简报 (${today}) 尚未生成或该日期无重要数据。</div>`;
+        return;
+    }
+    
+    const markdown = await res.text();
+    // Use marked if available, otherwise fallback to simple pre-wrap
+    if (window.marked) {
+        newsContainer.innerHTML = `<div class="markdown-body">${marked.parse(markdown)}</div>`;
+    } else {
+        newsContainer.innerHTML = `<pre style="white-space: pre-wrap; color: var(--text-primary); font-family: inherit;">${markdown}</pre>`;
+    }
+  } catch (e) {
+    console.error('[News] Load error:', e);
+    newsContainer.innerHTML = `<div class="news-error">❌ 加载新闻失败: ${e.message}</div>`;
+  }
 }

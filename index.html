@@ -12,6 +12,8 @@
   <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <!-- Pyodide for Browser Python Execution -->
   <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+  <!-- Marked.js for News Markdown Rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
   <div class="app-background">
@@ -334,6 +336,19 @@ results = on_calculate(df)
                 </div>
               </div>
 
+            </div>
+          </div>
+
+          <!-- News Content Tab -->
+          <div id="tabNews" class="chart-tab-content" style="display:none;">
+            <div class="news-container">
+              <div class="news-header-strip">
+                <h2><i class="fas fa-newspaper"></i> 每日深度财经简报 (AI 聚合)</h2>
+                <button class="news-refresh-btn" onclick="loadNews()"><i class="fas fa-sync-alt"></i> 刷新</button>
+              </div>
+              <div id="newsContent" class="news-content-area">
+                <!-- Content injected by loadNews() -->
+              </div>
             </div>
           </div>
 
