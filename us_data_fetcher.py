@@ -3,8 +3,15 @@ import pandas as pd
 import os
 import json
 import time
+import random
 from datetime import datetime, timedelta
 import requests
+
+# Set up global yfinance Session with User-Agent to avoid 429
+yf_session = requests.Session()
+yf_session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+})
 
 # Configuration
 WATCHLIST_PATH = "watch_list.json"
@@ -21,6 +28,7 @@ TIMEFRAMES = [
     ("1mo", "max")   # 月K (Monthly)
 ]
 
+<<<<<<< Updated upstream
 # Parse multiple Tiingo API keys from environment variable (comma separated)
 env_keys = os.getenv("TIINGO_API_KEY", "")
 if env_keys:
@@ -94,6 +102,30 @@ class TiingoClient:
 
 # Initialize Tiingo Client
 tiingo_client = TiingoClient(TIINGO_API_KEYS)
+=======
+class TiingoTokenManager:
+    def __init__(self):
+        # 支持逗号分隔的多个 token
+        raw_keys = os.environ.get("TIINGO_API_KEY", "")
+        self.tokens = [k.strip() for k in raw_keys.split(",") if k.strip()]
+        self.current_idx = 0
+        if not self.tokens:
+            print("WARNING: No TIINGO_API_KEY found in environment.")
+            
+    def get_token(self):
+        if not self.tokens: return None
+        return self.tokens[self.current_idx]
+    
+    def next_token(self):
+        if not self.tokens: return None
+        old_token = self.get_token()
+        self.current_idx = (self.current_idx + 1) % len(self.tokens)
+        new_token = self.get_token()
+        print(f"  Token rotated: {old_token[:4]}... -> {new_token[:4]}...")
+        return new_token
+
+token_manager = TiingoTokenManager()
+>>>>>>> Stashed changes
 
 def load_watchlist():
     try:
@@ -102,11 +134,15 @@ def load_watchlist():
         with open(WATCHLIST_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
             tickers = []
+<<<<<<< Updated upstream
             if isinstance(data, list):
                 for category in data:
                     for item in category.get('items', []):
                         tickers.append(item['symbol'])
             elif isinstance(data, dict):
+=======
+            if isinstance(data, dict):
+>>>>>>> Stashed changes
                 tickers = data.get('stocks', []) + data.get('etfs', []) + data.get('crypto', [])
             
             # Preserve order while removing duplicates
@@ -117,16 +153,30 @@ def load_watchlist():
         return ["SPY", "QQQ", "AAPL", "MSFT", "NVDA", "TSLA"]
 
 def fetch_via_tiingo(ticker, interval, period):
+<<<<<<< Updated upstream
     """Fallback / Complementary fetcher via Tiingo API with Key Rotation"""
     if not TIINGO_API_KEYS:
         return None
+=======
+    """Fallback / Complementary fetcher via Tiingo API with Token Rotation"""
+    token = token_manager.get_token()
+    if not token: return None
     
-    print(f"  Attempting Tiingo for {ticker} ({interval})...")
+    # 映射 Tiingo 的频率
+    freq_map = {"1m": "1min", "5m": "5min", "1d": "daily", "1wk": "weekly", "1mo": "monthly"}
+    if interval not in freq_map: return None
+
+    print(f"  Attempting Tiingo for {ticker} ({interval}) [Token: {token[:4]}...]")
+>>>>>>> Stashed changes
+    
     try:
+<<<<<<< Updated upstream
         freq_map = {"1m": "1min", "5m": "5min", "1d": "1day", "1wk": "1week", "1mo": "1month"}
         if interval not in freq_map:
             return None
         
+=======
+>>>>>>> Stashed changes
         is_crypto = "-" in ticker
         tiingo_ticker = ticker.replace("-", "").lower() if is_crypto else ticker.upper()
         
@@ -141,13 +191,26 @@ def fetch_via_tiingo(ticker, interval, period):
         if not is_crypto:
             url = f"{url}/{tiingo_ticker}/prices"
         
+<<<<<<< Updated upstream
         days = 7 if interval == "1m" else 730
         start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         
         params = {
+=======
+        # 1m/5m 数据免费版通常只能拿最近几天，日线/周线/月线可以拿更久
+        if interval in ["1m", "5m"]:
+            days = 7
+        else:
+            days = 3650  # 取过去10年
+        start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        
+        params = {
+            "token": token,
+>>>>>>> Stashed changes
             "startDate": start_date,
             "format": "json"
         }
+<<<<<<< Updated upstream
         if endpoint != "daily":
             params["resampleFreq"] = freq_map.get(interval, "1min" if endpoint == "iex" else "1day")
         
@@ -158,6 +221,24 @@ def fetch_via_tiingo(ticker, interval, period):
         if not data:
             return None
         
+=======
+        if is_crypto: params["tickers"] = tiingo_ticker
+        
+        response = requests.get(url, params=params)
+        
+        # 处理频率限制 (429) 或配额用尽
+        if response.status_code == 429:
+            print(f"    Tiingo Rate Limit Hit for Token {token[:4]}...")
+            token_manager.next_token()
+            return fetch_via_tiingo(ticker, interval, period) # 递归尝试下一个 Token
+            
+        if response.status_code != 200:
+            print(f"    Tiingo API Error: {response.status_code}")
+            return None
+            
+        data = response.json()
+        if not data: return None
+>>>>>>> Stashed changes
         if is_crypto and isinstance(data, list) and len(data) > 0:
             data = data[0].get('priceData', [])
             
@@ -166,14 +247,20 @@ def fetch_via_tiingo(ticker, interval, period):
         
         df['date'] = pd.to_datetime(df['date'])
         df.set_index('date', inplace=True)
+<<<<<<< Updated upstream
         # Using a safer column capitalization that doesn't mess with PascalCase from mapping later
         df.columns = [str(c).lower() for c in df.columns]
         
+=======
+        # 统一列名为 yfinance 风格
+        df.columns = [c.capitalize() for c in df.columns]
+>>>>>>> Stashed changes
         return df
     except Exception as e:
         print(f"    Tiingo error: {e}")
         return None
 
+<<<<<<< Updated upstream
 def standardize_df(df, ticker):
     """Normalize columns and handle MultiIndex if present"""
     if df is None or df.empty:
@@ -247,6 +334,10 @@ def validate_data(df, ticker, interval):
 
 def fetch_data(ticker, interval, period, force=False):
     print(f"Fetching {ticker} ({interval})...")
+=======
+def fetch_data(ticker, interval, period):
+    print(f"Processing {ticker} ({interval})...")
+>>>>>>> Stashed changes
     filename = os.path.join(DATA_DIR, f"{ticker}_{interval}.csv")
     
     # Check if we need to fetch
@@ -257,6 +348,7 @@ def fetch_data(ticker, interval, period, force=False):
             return True
             
     try:
+<<<<<<< Updated upstream
         # Avoid rate limits
         time.sleep(0.5)
         
@@ -308,6 +400,46 @@ def fetch_data(ticker, interval, period, force=False):
         # 4. Save
         df.to_csv(filename)
         print(f"  Successfully updated {len(df)} rows to {filename}")
+=======
+        # 始终优先使用 Tiingo
+        df = fetch_via_tiingo(ticker, interval, period)
+        if df is not None and not df.empty:
+            print(f"    Tiingo Success for {ticker} ({interval})")
+        
+        # 如果 Tiingo 没拿到，或者是周/月线，使用 yfinance 抓取
+        if df is None or df.empty:
+            target_interval = interval
+            if interval in ["3mo", "1y"]: target_interval = "1mo"
+            
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    # 使用较长的随机延迟 (2~5s) 规避封禁
+                    delay = random.uniform(2.0, 5.0)
+                    time.sleep(delay)
+                    df = yf.download(ticker, period=period, interval=target_interval, progress=False, session=yf_session)
+                    
+                    if df is not None and not df.empty:
+                        break # 成功抓取则跳出重试循环
+                    else:
+                        print(f"    yfinance returned empty for {ticker} (Attempt {attempt+1}/{max_retries})")
+                except Exception as e:
+                    print(f"    yfinance error for {ticker} (Attempt {attempt+1}/{max_retries}): {e}")
+                    # 失败后指数退避
+                    time.sleep(random.uniform(3.0, 8.0) * (attempt + 1))
+
+        if df is None or df.empty:
+            print(f"  FAILED to fetch {ticker} ({interval})")
+            return False
+            
+        # 标准化多重索引列 (yfinance 0.2.x 引入的变更)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+            
+        df = df.dropna(subset=['Open', 'High', 'Low', 'Close'])
+        df.to_csv(filename)
+        print(f"  SAVED {len(df)} rows to {filename}")
+>>>>>>> Stashed changes
         return True
     except Exception as e:
         print(f"  Error fetching {ticker}: {e}")
@@ -382,7 +514,6 @@ def main():
         
     print(f"Total tickers to process: {len(tickers)}")
     
-    # Track statistics
     stats = {"success": 0, "failed": 0}
     
     # 3. Fetch market info (Metadata)
@@ -392,14 +523,19 @@ def main():
     
     for ticker in tickers:
         for interval, period in TIMEFRAMES:
+<<<<<<< Updated upstream
             success = fetch_data(ticker, interval, period, force=force_all)
             if success:
                 stats["success"] += 1
             else:
                 stats["failed"] += 1
+=======
+            success = fetch_data(ticker, interval, period)
+            if success: stats["success"] += 1
+            else: stats["failed"] += 1
+>>>>>>> Stashed changes
                 
-    print(f"\nFetch complete!")
-    print(f"Success: {stats['success']} | Failed: {stats['failed']}")
+    print(f"\nFetch complete! Success: {stats['success']} | Failed: {stats['failed']}")
 
 if __name__ == "__main__":
     main()

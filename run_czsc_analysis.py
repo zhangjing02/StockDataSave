@@ -172,13 +172,19 @@ def analyze_ticker(csv_path):
 
 
 def main():
-    csv_files = [os.path.join(DATA_DIR, "AAPL_1d.csv")]
-    if not os.path.exists(csv_files[0]):
-        csv_files = glob.glob(os.path.join(DATA_DIR, "*.csv"))[:10] # Fallback to first 10
+    # Find all CSV files in DATA_DIR
+    csv_files = glob.glob(os.path.join(DATA_DIR, "*.csv"))
     
-    print(f"Found {len(csv_files)} data files to analyze.")
+    if not csv_files:
+        print("No data files found in data/ directory.")
+        return
+        
+    print(f"Found {len(csv_files)} data files to analyze in {DATA_DIR}.")
     
-    for f in csv_files:
+    # Filter out files that might have been created by accident or are not ticker data
+    valid_files = [f for f in csv_files if "_" in os.path.basename(f)]
+    
+    for f in valid_files:
         analyze_ticker(f)
 
 if __name__ == "__main__":

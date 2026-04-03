@@ -2,8 +2,15 @@
 //  CZSC 美股量化平台 - Premium UI Integration
 // ============================================================
 
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+const RAW_URL = isLocal ? '.' : 'https://raw.githubusercontent.com/zhangjing02/StockDataSave/data-sync';
+
 const CONFIG = {
+<<<<<<< Updated upstream
   RAW_BASE: 'https://raw.githubusercontent.com/zhangjing02/StockDataSave/data-sync',
+=======
+  RAW_BASE: RAW_URL,
+>>>>>>> Stashed changes
   LOCAL_BASE: '.', // Default for relative path
   DATA_PATH: 'data',
 
