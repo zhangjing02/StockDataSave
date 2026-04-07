@@ -6,11 +6,7 @@ const isLocal = window.location.hostname === 'localhost' || window.location.host
 const RAW_URL = isLocal ? '.' : 'https://raw.githubusercontent.com/zhangjing02/StockDataSave/data-sync';
 
 const CONFIG = {
-<<<<<<< Updated upstream
-  RAW_BASE: 'https://raw.githubusercontent.com/zhangjing02/StockDataSave/data-sync',
-=======
   RAW_BASE: RAW_URL,
->>>>>>> Stashed changes
   LOCAL_BASE: '.', // Default for relative path
   DATA_PATH: 'data',
 
