@@ -7,6 +7,22 @@ import random
 from datetime import datetime, timedelta
 import requests
 
+import sys
+import io
+
+# Force UTF-8 encoding for stdout on Windows to prevent UnicodeEncodeError
+if sys.platform == "win32":
+    # Python 3.7+ supports reconfigure
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+def safe_print(*args, **kwargs):
+    """Print with explicit flush to ensure logs appear in real-time"""
+    kwargs['flush'] = True
+    print(*args, **kwargs)
+
 # Set up global yfinance Session with User-Agent to avoid 429
 yf_session = requests.Session()
 yf_session.headers.update({
@@ -14,8 +30,9 @@ yf_session.headers.update({
 })
 
 # Configuration
-WATCHLIST_PATH = "watch_list.json"
-DATA_DIR = "data"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+WATCHLIST_PATH = os.path.join(SCRIPT_DIR, "watch_list.json")
+DATA_DIR = os.path.join(SCRIPT_DIR, "data")
 MARKET_INFO_PATH = os.path.join(DATA_DIR, "market_info.json")
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -57,7 +74,7 @@ class TiingoClient:
         old_key = self.get_current_key()
         self.current_key_idx = (self.current_key_idx + 1) % len(self.api_keys)
         new_key = self.get_current_key()
-        print(f"      [Tiingo] Rate limit hit for key ...{old_key[-8:]}. Switching to key ...{new_key[-8:]}")
+        safe_print(f"      [Tiingo] Rate limit hit for key ...{old_key[-8:]}. Switching to key ...{new_key[-8:]}")
         return True
 
     def request(self, url, params, max_retries=3):
@@ -137,15 +154,11 @@ def fetch_via_tiingo(ticker, interval, period):
         tiingo_ticker = ticker.replace("-", "").lower() if is_crypto else ticker.upper()
         
         if is_crypto:
-            endpoint = "crypto/prices"
+            url = "https://api.tiingo.com/tiingo/crypto/prices"
         elif interval == "1m":
-            endpoint = "iex"
+            url = f"https://api.tiingo.com/iex/{tiingo_ticker}/prices"
         else:
-            endpoint = "daily"
-
-        url = f"https://api.tiingo.com/tiingo/{endpoint}"
-        if not is_crypto:
-            url = f"{url}/{tiingo_ticker}/prices"
+            url = f"https://api.tiingo.com/tiingo/daily/{tiingo_ticker}/prices"
         
         days = 7 if interval == "1m" else 730
         start_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
@@ -154,11 +167,13 @@ def fetch_via_tiingo(ticker, interval, period):
             "startDate": start_date,
             "format": "json"
         }
-        if endpoint != "daily":
-            params["resampleFreq"] = freq_map.get(interval, "1min" if endpoint == "iex" else "1day")
         
+        # resampleFreq logic
         if is_crypto:
+            params["resampleFreq"] = freq_map.get(interval, "1day")
             params["tickers"] = tiingo_ticker
+        elif interval == "1m":
+            params["resampleFreq"] = freq_map.get(interval, "1min")
         
         data = tiingo_client.request(url, params)
         if not data:
@@ -252,7 +267,7 @@ def validate_data(df, ticker, interval):
     return True
 
 def fetch_data(ticker, interval, period, force=False):
-    print(f"Fetching {ticker} ({interval})...")
+    safe_print(f"Fetching {ticker} ({interval})...")
     filename = os.path.join(DATA_DIR, f"{ticker}_{interval}.csv")
     
     # Check if we need to fetch
@@ -321,7 +336,7 @@ def fetch_data(ticker, interval, period, force=False):
 
 def fetch_market_info(tickers):
     """Fetch metadata like floatShares for each ticker"""
-    print(f"\nFetching market info for {len(tickers)} tickers...")
+    safe_print(f"\nFetching market info for {len(tickers)} tickers...")
     market_info = {}
     
     # Load existing to avoid redundant calls
@@ -380,7 +395,7 @@ def main():
         if idx + 1 < len(args):
             raw = args[idx+1].split(",")
             tickers = [t.strip().upper() for t in raw if t.strip()]
-            print(f"Targeted Fetch: {tickers}")
+            safe_print(f"Targeted Fetch: {tickers}")
         else:
             tickers = watchlist
     else:
@@ -391,7 +406,10 @@ def main():
     stats = {"success": 0, "failed": 0}
     
     # 3. Fetch market info (Metadata)
-    fetch_market_info(tickers)
+    if "--skip-info" not in args:
+        fetch_market_info(tickers)
+    else:
+        safe_print("Skipping market info fetch as requested.")
     
     # 4. Fetch OCHLV data
     
@@ -402,6 +420,9 @@ def main():
                 stats["success"] += 1
             else:
                 stats["failed"] += 1
+            
+            # Add delay to avoid aggressive calling
+            time.sleep(1)
                 
     print(f"\nFetch complete! Success: {stats['success']} | Failed: {stats['failed']}")
 
