@@ -23,10 +23,19 @@ def safe_print(*args, **kwargs):
     kwargs['flush'] = True
     print(*args, **kwargs)
 
-# Set up global yfinance Session with User-Agent to avoid 429
+# User-Agent rotation list to avoid yfinance rate limits
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/115.0'
+]
+
+# Set up global yfinance Session with User-Agent
 yf_session = requests.Session()
 yf_session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    'User-Agent': random.choice(USER_AGENTS)
 })
 
 # Configuration
@@ -50,7 +59,7 @@ env_keys = os.getenv("TIINGO_API_KEY", "")
 if env_keys:
     TIINGO_API_KEYS = [k.strip() for k in env_keys.split(",") if k.strip()]
 else:
-    # Fallback to hardcoded keys
+    # Fallback to hardcoded keys (only include known valid ones)
     TIINGO_API_KEYS = [
         "b9c4877fd73b86f21957995f7411f482ce962b33",
         "e54c2593c7cc8b885c72d7b54411447e5f6b72ea",
@@ -59,9 +68,9 @@ else:
 
 class TiingoClient:
     def __init__(self, api_keys):
-        self.api_keys = api_keys
+        self.api_keys = [k for k in api_keys if k]
         self.current_key_idx = 0
-        self.key_status = {key: {"requests": 0, "last_429": None} for key in api_keys}
+        self.key_status = {key: {"requests": 0, "last_429": None, "invalid": False} for key in self.api_keys}
 
     def get_current_key(self):
         if not self.api_keys:
@@ -107,6 +116,17 @@ class TiingoClient:
                         retries += 1
                         continue
                 
+                if response.status_code == 403 or (response.status_code == 400 and "Invalid token" in response.text):
+                    print(f"      [Tiingo] 403 Invalid Token: ...{key[-8:]}. Marking as inactive.")
+                    self.key_status[key]["invalid"] = True
+                    # Remove from active list
+                    self.api_keys.pop(self.current_key_idx)
+                    if not self.api_keys:
+                        print("      [Tiingo] No valid API keys remaining!")
+                        return None
+                    self.current_key_idx %= len(self.api_keys)
+                    continue
+
                 print(f"      [Tiingo] API Error: {response.status_code} - {response.text}")
                 return None
             except Exception as e:
@@ -213,7 +233,6 @@ def standardize_df(df, ticker):
     mapping = {
         'adjclose': 'AdjClose',
         'adjhigh': 'AdjHigh',
-        'adjlow': 'AdjClose', # Oops, common typo check
         'adjlow': 'AdjLow',
         'adjopen': 'AdjOpen',
         'adjvolume': 'AdjVolume',
