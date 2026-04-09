@@ -70,7 +70,17 @@ class TiingoClient:
     def __init__(self, api_keys):
         self.api_keys = [k for k in api_keys if k]
         self.current_key_idx = 0
-        self.key_status = {key: {"requests": 0, "last_429": None, "invalid": False} for key in self.api_keys}
+        # Audit Stats
+        self.stats = {
+            key: {
+                "success": 0, 
+                "429": 0, 
+                "403": 0, 
+                "timeout": 0, 
+                "error": 0,
+                "latencies": []
+            } for key in self.api_keys
+        }
 
     def get_current_key(self):
         if not self.api_keys:
@@ -96,45 +106,73 @@ class TiingoClient:
                 return None
             
             params["token"] = key
+            start_time = time.time()
             try:
                 response = requests.get(url, params=params, timeout=15)
-                self.key_status[key]["requests"] += 1
+                elapsed = time.time() - start_time
+                self.stats[key]["latencies"].append(elapsed)
                 
+                # Audit Log
+                safe_print(f"      [AUDIT] Key: ...{key[-8:]} | Status: {response.status_code} | Time: {elapsed:.2f}s")
+
                 if response.status_code == 200:
+                    self.stats[key]["success"] += 1
                     return response.json()
                 
                 if response.status_code == 429:
-                    print(f"      [Tiingo] 429 Too Many Requests for key ...{key[-8:]}")
+                    self.stats[key]["429"] += 1
+                    safe_print(f"      [Tiingo] 429 Too Many Requests for key ...{key[-8:]}")
                     if self.switch_to_next_key():
-                        # If we have more keys, try the next one immediately
                         continue
                     else:
-                        # Only one key or all keys tried, need to wait
-                        print(f"      [Tiingo] All keys limited. Sleeping for {wait_time}s...")
+                        safe_print(f"      [Tiingo] All keys limited. Sleeping for {wait_time}s...")
                         time.sleep(wait_time)
                         wait_time *= 2 # Exponential backoff
                         retries += 1
                         continue
                 
                 if response.status_code == 403 or (response.status_code == 400 and "Invalid token" in response.text):
-                    print(f"      [Tiingo] 403 Invalid Token: ...{key[-8:]}. Marking as inactive.")
-                    self.key_status[key]["invalid"] = True
+                    self.stats[key]["403"] += 1
+                    safe_print(f"      [Tiingo] 403 Invalid Token: ...{key[-8:]}. Marking as inactive.")
                     # Remove from active list
-                    self.api_keys.pop(self.current_key_idx)
+                    if key in self.api_keys:
+                        self.api_keys.pop(self.current_key_idx)
                     if not self.api_keys:
-                        print("      [Tiingo] No valid API keys remaining!")
+                        safe_print("      [Tiingo] No valid API keys remaining!")
                         return None
                     self.current_key_idx %= len(self.api_keys)
                     continue
 
-                print(f"      [Tiingo] API Error: {response.status_code} - {response.text}")
+                self.stats[key]["error"] += 1
+                safe_print(f"      [Tiingo] API Error: {response.status_code} - {response.text}")
                 return None
+            except requests.exceptions.Timeout:
+                self.stats[key]["timeout"] += 1
+                safe_print(f"      [Tiingo] Read Timeout for key ...{key[-8:]}")
+                retries += 1
+                time.sleep(5)
             except Exception as e:
-                print(f"      [Tiingo] Connection Error: {e}")
+                self.stats[key]["error"] += 1
+                safe_print(f"      [Tiingo] Connection Error: {e}")
                 retries += 1
                 time.sleep(5)
         
         return None
+
+    def print_audit_report(self):
+        """Print final summary of Tiingo API usage and health"""
+        safe_print("\n" + "="*50)
+        safe_print("📊 TIINGO TOKEN FINAL AUDIT REPORT")
+        safe_print("="*50)
+        for key, s in self.stats.items():
+            avg_lat = sum(s["latencies"]) / len(s["latencies"]) if s["latencies"] else 0
+            safe_print(f"Key ...{key[-8:]}:")
+            safe_print(f"  - [PASS] Success: {s['success']}")
+            safe_print(f"  - [LIMIT] 429 Limit: {s['429']}")
+            safe_print(f"  - [FAIL] 403 Invalid: {s['403']}")
+            safe_print(f"  - [TIME] Timeouts: {s['timeout']}")
+            safe_print(f"  - [AVG] Latency: {avg_lat:.2f}s")
+        safe_print("="*50 + "\n")
 
 # Initialize Tiingo Client
 tiingo_client = TiingoClient(TIINGO_API_KEYS)
@@ -443,6 +481,8 @@ def main():
             # Add delay to avoid aggressive calling
             time.sleep(1)
                 
+    # 5. Final Report
+    tiingo_client.print_audit_report()
     print(f"\nFetch complete! Success: {stats['success']} | Failed: {stats['failed']}")
 
 if __name__ == "__main__":
