@@ -415,6 +415,14 @@ function initChart() {
         horzLine: { color: 'rgba(255, 255, 255, 0.2)', labelBackgroundColor: '#1e293b' }
       },
       rightPriceScale: { borderColor: 'rgba(255, 255, 255, 0.05)' },
+      localization: {
+        locale: 'zh-CN',
+        dateFormat: 'yyyy-MM-dd',
+        timeFormatter: (ts) => {
+          const d = new Date(ts * 1000);
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+      },
       timeScale: { 
         borderColor: 'rgba(255, 255, 255, 0.05)', 
         timeVisible: true, 
@@ -746,6 +754,14 @@ function updateSubCharts(data) {
             fontFamily: "'Inter', sans-serif"
           },
           grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(255,255,255,0.02)' } },
+          localization: {
+            locale: 'zh-CN',
+            dateFormat: 'yyyy-MM-dd',
+            timeFormatter: (ts) => {
+              const d = new Date(ts * 1000);
+              return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            }
+          },
           timeScale: { visible: false },
           rightPriceScale: { borderColor: 'transparent' },
           crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
@@ -981,8 +997,8 @@ function renderSignalData(s) {
     const pts = [];
     s.bi.forEach(b => {
       const t1 = parseDt(b.start_dt), t2 = parseDt(b.end_dt);
-      if (t1) pts.push({ time: t1, value: b.direction == 1 ? b.low : b.high });
-      if (t2) pts.push({ time: t2, value: b.direction == 1 ? b.high : b.low });
+      if (t1) pts.push({ time: t1, value: b.start_v });
+      if (t2) pts.push({ time: t2, value: b.end_v });
     });
     ser.setData(uniqueByTime(pts));
   }
@@ -1475,7 +1491,11 @@ function fmtPct(n) { return (n >= 0 ? '+' : '') + (n * 100).toFixed(2) + '%'; }
 function fmtTs(ts) {
   if (!ts) return '--';
   const d = new Date(ts * 1000);
-  return d.toISOString().slice(0, 10);
+  // 使用本地时间格式，避免 UTC 导致日期偏移
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 async function runBacktest() {
@@ -1663,6 +1683,14 @@ function renderEquityCurve(equityData, initialCapital) {
       grid: {
         vertLines: { color: 'rgba(255,255,255,0.04)' },
         horzLines: { color: 'rgba(255,255,255,0.04)' }
+      },
+      localization: {
+        locale: 'zh-CN',
+        dateFormat: 'yyyy-MM-dd',
+        timeFormatter: (ts) => {
+          const d = new Date(ts * 1000);
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
       },
       timeScale: { borderVisible: false },
       rightPriceScale: { borderVisible: false },
