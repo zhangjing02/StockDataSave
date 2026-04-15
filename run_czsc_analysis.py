@@ -32,9 +32,32 @@ def analyze_ticker(csv_path):
         df = pd.read_csv(csv_path)
         if df.empty or len(df) < 50: return # Need some data to analyze
 
-        # Find columns
-        cols = df.columns
-        date_col = next((c for c in cols if "Date" in c or "dt" in c or c == "Unnamed: 0"), None)
+        # Find columns (case-insensitive)
+        cols = list(df.columns)
+        col_map = {str(c).strip().lower(): c for c in cols}
+        date_col = None
+        for k in ["date", "datetime", "dt", "timestamp", "unnamed: 0"]:
+            if k in col_map:
+                date_col = col_map[k]
+                break
+        if date_col is None:
+            for c in cols:
+                lc = str(c).strip().lower()
+                if "date" in lc or lc.endswith("dt"):
+                    date_col = c
+                    break
+        if date_col is None:
+            print(f"  Skip {filename}: date column not found. columns={cols[:8]}")
+            return
+
+        open_col = col_map.get("open")
+        high_col = col_map.get("high")
+        low_col = col_map.get("low")
+        close_col = col_map.get("close")
+        volume_col = col_map.get("volume")
+        if not all([open_col, high_col, low_col, close_col]):
+            print(f"  Skip {filename}: OHLC columns missing. columns={cols[:8]}")
+            return
         
         # Prepare bars for CZSC
         bars = []
@@ -47,11 +70,11 @@ def analyze_ticker(csv_path):
                 bar = RawBar(
                     symbol=symbol,
                     dt=dt,
-                    open=float(row['Open']),
-                    close=float(row['Close']),
-                    high=float(row['High']),
-                    low=float(row['Low']),
-                    vol=float(row['Volume']),
+                    open=float(row[open_col]),
+                    close=float(row[close_col]),
+                    high=float(row[high_col]),
+                    low=float(row[low_col]),
+                    vol=float(row[volume_col]) if volume_col else 0.0,
                     amount=0 # Optional
                 )
                 bars.append(bar)

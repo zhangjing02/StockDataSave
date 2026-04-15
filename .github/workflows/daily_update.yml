@@ -37,7 +37,7 @@ jobs:
       - name: Fetch stock data
         env:
           TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
-        run: python us_data_fetcher.py
+        run: python us_data_fetcher.py --force
 
       - name: Run CZSC Analysis
         run: python run_czsc_analysis.py

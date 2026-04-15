@@ -484,6 +484,9 @@ def main():
     import sys
     args = sys.argv[1:]
     force_all = "--force" in args
+    if os.getenv("GITHUB_ACTIONS", "").lower() == "true" and "--no-force" not in args:
+        # In CI checkout, file mtime is fresh and can cause false "updated within 4 hours" skips.
+        force_all = True
     
     # Filter tickers if --tickers provided
     if "--tickers" in args:
