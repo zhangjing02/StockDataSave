@@ -2,7 +2,7 @@ name: Daily Stock Data Update (CZSC Format)
 
 on:
   schedule:
-    # 每天美东时间晚上 17:00 运行 (相当于 UTC 21:00) 确保美股已收盘
+    # 每天美东时间晚上 17:00 运行（冬令时 UTC22 / 夏令时 UTC21，当前配置固定 UTC22）
     - cron: '0 22 * * 1-5'
   workflow_dispatch:
     # 允许手动触发
@@ -11,9 +11,14 @@ on:
         description: 'Manual Trigger'
         required: false
 
+concurrency:
+  group: stock-data-daily-update
+  cancel-in-progress: true
+
 jobs:
   update-data:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: write
 
@@ -47,13 +52,18 @@ jobs:
 
       - name: Commit and push to data-sync branch
         run: |
+          set -euo pipefail
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
           # 1. 备份数据文件夹到临时目录
           echo "Backing up generated data..."
           mkdir -p /tmp/data_backup
-          cp -r data/* /tmp/data_backup/
+          if [ -n "$(find data -mindepth 1 -print -quit 2>/dev/null || true)" ]; then
+            cp -a data/. /tmp/data_backup/
+          else
+            echo "No generated data found under data/, continue with empty backup."
+          fi
           
           # 2. 切换到数据分支 (由于 main 分支 ignore 了 data/，checkout 可能会清理未追踪文件)
           echo "Switching to data-sync branch..."
@@ -62,20 +72,32 @@ jobs:
           # 3. 还原数据文件夹
           echo "Restoring data..."
           mkdir -p data
-          cp -r /tmp/data_backup/* data/
+          if [ -n "$(find /tmp/data_backup -mindepth 1 -print -quit 2>/dev/null || true)" ]; then
+            cp -a /tmp/data_backup/. data/
+          else
+            echo "Backup is empty, nothing to restore."
+          fi
           
           # 4. 调试：列出数据目录内容确认
           echo "Contents of data/ to be committed:"
           ls -R data/ | head -n 100
           
           # 5. 强制添加并提交
-          git add -f data/
+          if [ -n "$(find data -type f -print -quit 2>/dev/null || true)" ]; then
+            git add -f data/
+          else
+            echo "No files under data/, skip git add."
+          fi
           
           # 检查变更
           echo "Git status after add:"
           git status
           
-          git commit -m "Auto-update: data & signals $(date -u +%Y-%m-%dT%H:%M:%SZ)" || echo "No changes to commit"
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Auto-update: data & signals $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          fi
           
           # 6. 强制推送到远程
           git push origin data-sync --force
