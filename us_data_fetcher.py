@@ -59,12 +59,7 @@ env_keys = os.getenv("TIINGO_API_KEY", "")
 if env_keys:
     TIINGO_API_KEYS = [k.strip() for k in env_keys.split(",") if k.strip()]
 else:
-    # Fallback to hardcoded keys (only include known valid ones)
-    TIINGO_API_KEYS = [
-        "b9c4877fd73b86f21957995f7411f482ce962b33",
-        "e54c2593c7cc8b885c72d7b54411447e5f6b72ea",
-        "3c0cf0de5c4187736d9c4262201ebd5415a8ce3f"
-    ]
+    TIINGO_API_KEYS = []
 
 class TiingoClient:
     def __init__(self, api_keys):
@@ -303,6 +298,51 @@ def standardize_df(df, ticker):
     
     return df
 
+
+def resample_ohlcv(df, rule):
+    """Resample OHLCV bars from higher frequency data."""
+    if df is None or df.empty:
+        return df
+
+    agg_map = {
+        "Open": "first",
+        "High": "max",
+        "Low": "min",
+        "Close": "last",
+        "Volume": "sum"
+    }
+    available = {k: v for k, v in agg_map.items() if k in df.columns}
+    if not available:
+        return df
+
+    return df.resample(rule).agg(available).dropna(how="any")
+
+
+def ensure_interval_granularity(df, ticker, interval):
+    """Detect and fix wrong bar granularity (e.g. daily bars saved as weekly/monthly)."""
+    if df is None or df.empty or interval not in {"1wk", "1mo"}:
+        return df
+
+    if len(df.index) < 3:
+        return df
+
+    idx = pd.to_datetime(df.index).sort_values()
+    gaps = idx.to_series().diff().dropna().dt.total_seconds() / 86400
+    if gaps.empty:
+        return df
+
+    median_gap_days = float(gaps.median())
+    min_expected = 3.0 if interval == "1wk" else 10.0
+    if median_gap_days >= min_expected:
+        return df
+
+    rule = "W-FRI" if interval == "1wk" else "ME"
+    safe_print(
+        f"    [Granularity Fix] {ticker} {interval} median gap {median_gap_days:.2f}d "
+        f"is too small. Resampling with {rule}."
+    )
+    return resample_ohlcv(df, rule)
+
 def validate_data(df, ticker, interval):
     """Basic sanity check for fetched data"""
     if df is None or df.empty:
@@ -368,6 +408,7 @@ def fetch_data(ticker, interval, period, force=False):
         
         # 2. Standardize and Validate
         df = standardize_df(df, ticker)
+        df = ensure_interval_granularity(df, ticker, interval)
         
         if not validate_data(df, ticker, interval):
             print(f"  Validation failed for {ticker}")
@@ -375,13 +416,9 @@ def fetch_data(ticker, interval, period, force=False):
             
         # 3. Post-process for resampled intervals
         if interval == "3mo":
-            df = df.resample('3ME').agg({
-                'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
-            }).dropna()
+            df = resample_ohlcv(df, "3ME")
         elif interval == "1y":
-            df = df.resample('Y').agg({
-                'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
-            }).dropna()
+            df = resample_ohlcv(df, "YE")
         
         # 4. Save
         df.to_csv(filename)
@@ -440,6 +477,8 @@ def fetch_market_info(tickers):
 
 def main():
     watchlist = load_watchlist()
+    if not TIINGO_API_KEYS:
+        safe_print("Warning: TIINGO_API_KEY is empty. Tiingo fallback will be unavailable.")
     
     # 2. Command line arguments
     import sys

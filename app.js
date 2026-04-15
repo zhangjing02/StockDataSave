@@ -997,8 +997,15 @@ function renderSignalData(s) {
     const pts = [];
     s.bi.forEach(b => {
       const t1 = parseDt(b.start_dt), t2 = parseDt(b.end_dt);
-      if (t1) pts.push({ time: t1, value: b.start_v });
-      if (t2) pts.push({ time: t2, value: b.end_v });
+      const isUp = (b.direction || '').toLowerCase() === 'up';
+      const startV = Number.isFinite(Number(b.start_v))
+        ? Number(b.start_v)
+        : (isUp ? Number(b.low) : Number(b.high));
+      const endV = Number.isFinite(Number(b.end_v))
+        ? Number(b.end_v)
+        : (isUp ? Number(b.high) : Number(b.low));
+      if (t1 && Number.isFinite(startV)) pts.push({ time: t1, value: startV });
+      if (t2 && Number.isFinite(endV)) pts.push({ time: t2, value: endV });
     });
     ser.setData(uniqueByTime(pts));
   }
@@ -1775,21 +1782,43 @@ async function loadNews() {
   newsContainer.innerHTML = '<div class="news-loading"><i class="fas fa-spinner fa-spin"></i> 正在从云端加载今日财经简报...</div>';
   
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const url = getCacheUrl(`${CONFIG.RAW_BASE}/data/news/${today}.md`);
-    
-    const res = await fetch(url);
-    if (!res.ok) {
-        newsContainer.innerHTML = `<div class="news-empty"><i class="far fa-calendar-times"></i> 今日新闻简报 (${today}) 尚未生成或该日期无重要数据。</div>`;
-        return;
+    const toLocalDate = (dt) => {
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const d = String(dt.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    const candidates = [];
+    const now = new Date();
+    for (let i = 0; i < 3; i++) {
+      const dt = new Date(now);
+      dt.setDate(now.getDate() - i);
+      candidates.push(toLocalDate(dt));
     }
-    
-    const markdown = await res.text();
+
+    let markdown = '';
+    let matchedDate = '';
+    for (const day of candidates) {
+      const url = getCacheUrl(`${CONFIG.RAW_BASE}/data/news/${day}.md`);
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      markdown = await res.text();
+      matchedDate = day;
+      break;
+    }
+
+    if (!markdown) {
+      newsContainer.innerHTML = `<div class="news-empty"><i class="far fa-calendar-times"></i> 最近 3 天新闻简报尚未生成（${candidates[0]} ~ ${candidates[candidates.length - 1]}）。</div>`;
+      return;
+    }
+
+    const title = `<div class="news-meta">简报日期：${matchedDate}</div>`;
     // Use marked if available, otherwise fallback to simple pre-wrap
     if (window.marked) {
-        newsContainer.innerHTML = `<div class="markdown-body">${marked.parse(markdown)}</div>`;
+      newsContainer.innerHTML = `${title}<div class="markdown-body">${marked.parse(markdown)}</div>`;
     } else {
-        newsContainer.innerHTML = `<pre style="white-space: pre-wrap; color: var(--text-primary); font-family: inherit;">${markdown}</pre>`;
+      newsContainer.innerHTML = `${title}<pre style="white-space: pre-wrap; color: var(--text-primary); font-family: inherit;">${markdown}</pre>`;
     }
   } catch (e) {
     console.error('[News] Load error:', e);

@@ -59,6 +59,7 @@ def analyze_ticker(csv_path):
                 continue
 
         if not bars: return
+        bars = sorted(bars, key=lambda x: x.dt)
 
         # Perform Analysis
         ci = CzscIter(bars)
@@ -76,10 +77,15 @@ def analyze_ticker(csv_path):
         # Extract Segments (笔)
         bi_list = []
         for bi in ci.bi_list:
+            is_up = str(bi.direction).lower() in ['up', '1', 'g']
+            start_v = float(bi.low) if is_up else float(bi.high)
+            end_v = float(bi.high) if is_up else float(bi.low)
             bi_list.append({
                 "start_dt": bi.start_dt.strftime('%Y-%m-%d %H:%M:%S'),
                 "end_dt": bi.end_dt.strftime('%Y-%m-%d %H:%M:%S'),
-                "direction": "up" if str(bi.direction).lower() in ['up', '1', 'g'] else "down",
+                "direction": "up" if is_up else "down",
+                "start_v": start_v,
+                "end_v": end_v,
                 "high": float(bi.high),
                 "low": float(bi.low)
             })
@@ -155,7 +161,8 @@ def analyze_ticker(csv_path):
         result = {
             "symbol": symbol,
             "interval": interval,
-            "last_update": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "last_update": bars[-1].dt.strftime('%Y-%m-%d %H:%M:%S'),
+            "generated_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             "fractals": fx_list,
             "bi": bi_list,
             "segments": xd_list,
