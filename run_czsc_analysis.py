@@ -4,15 +4,89 @@ import json
 import glob
 try:
     from czsc import CZSC as CzscIter, RawBar
+    try:
+        from czsc import Freq
+    except Exception:
+        Freq = None
 except ImportError:
     from czsc.analyze import CZSC as CzscIter
     from czsc.objects import RawBar
+    try:
+        from czsc.objects import Freq
+    except Exception:
+        Freq = None
 from datetime import datetime
 
 # Configuration
 DATA_DIR = "data"
 SIGNALS_DIR = os.path.join(DATA_DIR, "analysis")
 os.makedirs(SIGNALS_DIR, exist_ok=True)
+
+
+def resolve_freq(interval):
+    if Freq is None:
+        return None
+
+    name_map = {
+        "1m": ["F1", "M1", "Min1"],
+        "5m": ["F5", "M5", "Min5"],
+        "1d": ["D", "Day"],
+        "1wk": ["W", "Week"],
+        "1mo": ["M", "Month"],
+        "3mo": ["Q", "Quarter"],
+        "1y": ["Y", "Year"]
+    }
+
+    for name in name_map.get(interval, []):
+        if hasattr(Freq, name):
+            return getattr(Freq, name)
+
+    # Fallback: scan enum values by string representation.
+    try:
+        keywords = {
+            "1m": ["1m", "1min", "minute", "分钟"],
+            "5m": ["5m", "5min"],
+            "1d": ["1d", "day", "日"],
+            "1wk": ["1w", "week", "周"],
+            "1mo": ["1mo", "month", "月"],
+            "3mo": ["3mo", "quarter", "季"],
+            "1y": ["1y", "year", "年"]
+        }
+        for item in Freq:
+            text = f"{item} {getattr(item, 'value', '')}".lower()
+            if any(k in text for k in keywords.get(interval, [])):
+                return item
+    except Exception:
+        pass
+
+    return None
+
+
+def make_raw_bar(symbol, interval, idx, dt, o, c, h, l, v):
+    base = {
+        "symbol": symbol,
+        "dt": dt,
+        "open": o,
+        "close": c,
+        "high": h,
+        "low": l,
+        "vol": v,
+        "amount": 0
+    }
+    # Legacy constructors
+    try:
+        return RawBar(**base)
+    except TypeError:
+        pass
+
+    # Newer constructors often require id + freq
+    freq = resolve_freq(interval)
+    try:
+        return RawBar(id=int(idx), freq=freq, **base)
+    except TypeError:
+        if freq is not None:
+            return RawBar(id=int(idx), freq=str(freq), **base)
+        raise
 
 def analyze_ticker(csv_path):
     filename = os.path.basename(csv_path)
@@ -61,27 +135,35 @@ def analyze_ticker(csv_path):
         
         # Prepare bars for CZSC
         bars = []
-        for _, row in df.iterrows():
+        row_errors = 0
+        for ridx, row in df.iterrows():
             try:
                 dt_str = str(row[date_col])
                 # Convert to datetime object if possible, then back to ISO or timestamp
                 dt = pd.to_datetime(dt_str)
-                
-                bar = RawBar(
+
+                bar = make_raw_bar(
                     symbol=symbol,
+                    interval=interval,
+                    idx=ridx,
                     dt=dt,
-                    open=float(row[open_col]),
-                    close=float(row[close_col]),
-                    high=float(row[high_col]),
-                    low=float(row[low_col]),
-                    vol=float(row[volume_col]) if volume_col else 0.0,
-                    amount=0 # Optional
+                    o=float(row[open_col]),
+                    c=float(row[close_col]),
+                    h=float(row[high_col]),
+                    l=float(row[low_col]),
+                    v=float(row[volume_col]) if volume_col else 0.0
                 )
                 bars.append(bar)
-            except:
+            except Exception as e:
+                row_errors += 1
+                if row_errors <= 3:
+                    print(f"  Row parse error for {filename} at idx={ridx}: {e}")
                 continue
 
-        if not bars: return
+        if not bars:
+            if row_errors:
+                print(f"  Skip {filename}: all rows failed to convert to RawBar ({row_errors} errors).")
+            return
         bars = sorted(bars, key=lambda x: x.dt)
 
         # Perform Analysis
