@@ -44,13 +44,13 @@ def resolve_freq(interval):
     # Fallback: scan enum values by string representation.
     try:
         keywords = {
-            "1m": ["1m", "1min", "minute", "分钟"],
+            "1m": ["1m", "1min", "minute"],
             "5m": ["5m", "5min"],
-            "1d": ["1d", "day", "日"],
-            "1wk": ["1w", "week", "周"],
-            "1mo": ["1mo", "month", "月"],
-            "3mo": ["3mo", "quarter", "季"],
-            "1y": ["1y", "year", "年"]
+            "1d": ["1d", "day"],
+            "1wk": ["1w", "week"],
+            "1mo": ["1mo", "month"],
+            "3mo": ["3mo", "quarter"],
+            "1y": ["1y", "year"]
         }
         for item in Freq:
             text = f"{item} {getattr(item, 'value', '')}".lower()
@@ -87,6 +87,62 @@ def make_raw_bar(symbol, interval, idx, dt, o, c, h, l, v):
         if freq is not None:
             return RawBar(id=int(idx), freq=str(freq), **base)
         raise
+
+
+def normalize_direction(direction_obj):
+    text = str(getattr(direction_obj, "value", direction_obj)).lower()
+    return "up" if text in {"up", "1", "g", "long"} else "down"
+
+
+def to_dt_str(value):
+    if value is None:
+        return ""
+    try:
+        if hasattr(value, "strftime"):
+            return value.strftime('%Y-%m-%d %H:%M:%S')
+        return pd.to_datetime(value).strftime('%Y-%m-%d %H:%M:%S')
+    except Exception:
+        return str(value)
+
+
+def first_attr(obj, names, default=None):
+    for name in names:
+        if hasattr(obj, name):
+            val = getattr(obj, name)
+            if val is not None:
+                return val
+    return default
+
+
+def first_float(obj, names, default=None):
+    value = first_attr(obj, names, None)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+def get_dt_from_bar(bar):
+    return first_attr(bar, ["dt", "datetime", "time"], None)
+
+
+def extract_bi_bounds(bi):
+    start_dt = first_attr(bi, ["start_dt", "sdt", "s_dt"], None)
+    end_dt = first_attr(bi, ["end_dt", "edt", "e_dt"], None)
+    if start_dt is None:
+        start_dt = first_attr(first_attr(bi, ["fx_a", "start_fx"], None), ["dt"], None)
+    if end_dt is None:
+        end_dt = first_attr(first_attr(bi, ["fx_b", "end_fx"], None), ["dt"], None)
+    if start_dt is None or end_dt is None:
+        bars = first_attr(bi, ["bars"], [])
+        if bars:
+            if start_dt is None:
+                start_dt = get_dt_from_bar(bars[0])
+            if end_dt is None:
+                end_dt = get_dt_from_bar(bars[-1])
+    return start_dt, end_dt
 
 def analyze_ticker(csv_path):
     filename = os.path.basename(csv_path)
@@ -169,7 +225,7 @@ def analyze_ticker(csv_path):
         # Perform Analysis
         ci = CzscIter(bars)
         
-        # Extract Fractals (分型)
+        # Extract Fractals (åˆ†åž‹)
         fx_list = []
         for fx in ci.fx_list:
             fx_list.append({
@@ -179,40 +235,67 @@ def analyze_ticker(csv_path):
                 "low": fx.low
             })
 
-        # Extract Segments (笔)
+        # Extract Segments (ç¬”)
         bi_list = []
         for bi in ci.bi_list:
-            is_up = str(bi.direction).lower() in ['up', '1', 'g']
-            start_v = float(bi.low) if is_up else float(bi.high)
-            end_v = float(bi.high) if is_up else float(bi.low)
+            start_dt, end_dt = extract_bi_bounds(bi)
+            if start_dt is None or end_dt is None:
+                continue
+            direction = normalize_direction(getattr(bi, "direction", ""))
+            is_up = direction == "up"
+            high_v = first_float(bi, ["high", "gg"], None)
+            low_v = first_float(bi, ["low", "dd"], None)
+            if high_v is None or low_v is None:
+                bi_bars = first_attr(bi, ["bars"], [])
+                if bi_bars:
+                    highs = [first_float(x, ["high"], None) for x in bi_bars]
+                    lows = [first_float(x, ["low"], None) for x in bi_bars]
+                    highs = [x for x in highs if x is not None]
+                    lows = [x for x in lows if x is not None]
+                    if highs and lows:
+                        high_v = max(highs)
+                        low_v = min(lows)
+            if high_v is None or low_v is None:
+                continue
             bi_list.append({
-                "start_dt": bi.start_dt.strftime('%Y-%m-%d %H:%M:%S'),
-                "end_dt": bi.end_dt.strftime('%Y-%m-%d %H:%M:%S'),
-                "direction": "up" if is_up else "down",
-                "start_v": start_v,
-                "end_v": end_v,
-                "high": float(bi.high),
-                "low": float(bi.low)
+                "start_dt": to_dt_str(start_dt),
+                "end_dt": to_dt_str(end_dt),
+                "direction": direction,
+                "start_v": low_v if is_up else high_v,
+                "end_v": high_v if is_up else low_v,
+                "high": high_v,
+                "low": low_v
             })
 
-        # 提取线段 (Duan)
+        # æå–çº¿æ®µ (Duan)
         xd_list = []
         try:
             source_xd = getattr(ci, 'xd_list', [])
             for xd in source_xd:
+                xd_start = first_attr(xd, ["start_dt", "sdt", "s_dt"], None)
+                xd_end = first_attr(xd, ["end_dt", "edt", "e_dt"], None)
+                if xd_start is None:
+                    xd_start = first_attr(first_attr(xd, ["fx_a", "start_fx"], None), ["dt"], None)
+                if xd_end is None:
+                    xd_end = first_attr(first_attr(xd, ["fx_b", "end_fx"], None), ["dt"], None)
+                xd_high = first_float(xd, ["high", "gg"], None)
+                xd_low = first_float(xd, ["low", "dd"], None)
+                if xd_start is None or xd_end is None or xd_high is None or xd_low is None:
+                    continue
                 xd_list.append({
-                    "start_dt": xd.start_dt.strftime('%Y-%m-%d %H:%M:%S'),
-                    "end_dt": xd.end_dt.strftime('%Y-%m-%d %H:%M:%S'),
-                    "direction": "up" if str(xd.direction).lower() in ['up', '1', 'g'] else "down",
-                    "high": float(xd.high),
-                    "low": float(xd.low)
+                    "start_dt": to_dt_str(xd_start),
+                    "end_dt": to_dt_str(xd_end),
+                    "direction": normalize_direction(getattr(xd, "direction", "")),
+                    "high": xd_high,
+                    "low": xd_low
                 })
-        except: pass
+        except Exception:
+            pass
 
-        # 提取中枢 (ZhongShu)
+        # æå–ä¸­æž¢ (ZhongShu)
         zs_list = []
         try:
-            # 提取笔中枢
+            # æå–ç¬”ä¸­æž¢
             source_zs = getattr(ci, 'bi_zs_list', getattr(ci, 'zs_list', []))
             for zs in source_zs:
                 zg = getattr(zs, 'zg', 0)
@@ -227,31 +310,40 @@ def analyze_ticker(csv_path):
                 })
         except: pass
         
-        # 提取买卖点标记 (Markers) - 移除未来函数
+        # æå–ä¹°å–ç‚¹æ ‡è®° (Markers) - ç§»é™¤æœªæ¥å‡½æ•°
         markers = []
         try:
-            # 在缠论中，笔的结束点（最高/最低点）只有在后续走势满足分型+长度规则后才能被确认。
-            # 为了避免“未来函数”，我们将标记放在“确认点（Confirmation Time）”而非“极值点（Peak/Trough Time）”。
-            # 这里简单起见，我们将标记在笔结束后的第 5 根 K 线（缠论标准笔的基本确认周期）显示。
+            source_bars = getattr(ci, "bars", getattr(ci, "bars_raw", []))
+            # åœ¨ç¼ è®ºä¸­ï¼Œç¬”çš„ç»“æŸç‚¹ï¼ˆæœ€é«˜/æœ€ä½Žç‚¹ï¼‰åªæœ‰åœ¨åŽç»­èµ°åŠ¿æ»¡è¶³åˆ†åž‹+é•¿åº¦è§„åˆ™åŽæ‰èƒ½è¢«ç¡®è®¤ã€‚
+            # ä¸ºäº†é¿å…â€œæœªæ¥å‡½æ•°â€ï¼Œæˆ‘ä»¬å°†æ ‡è®°æ”¾åœ¨â€œç¡®è®¤ç‚¹ï¼ˆConfirmation Timeï¼‰â€è€Œéžâ€œæžå€¼ç‚¹ï¼ˆPeak/Trough Timeï¼‰â€ã€‚
+            # è¿™é‡Œç®€å•èµ·è§ï¼Œæˆ‘ä»¬å°†æ ‡è®°åœ¨ç¬”ç»“æŸåŽçš„ç¬¬ 5 æ ¹ K çº¿ï¼ˆç¼ è®ºæ ‡å‡†ç¬”çš„åŸºæœ¬ç¡®è®¤å‘¨æœŸï¼‰æ˜¾ç¤ºã€‚
             for i, bi in enumerate(ci.bi_list):
-                # 获取该笔结束后的数据流，寻找确认发生的时机
-                # 实际 CZSC 会有特定的信号字典，这里我们做一个非未来的偏移
+                _, bi_end_dt = extract_bi_bounds(bi)
+                if bi_end_dt is None:
+                    continue
+                # èŽ·å–è¯¥ç¬”ç»“æŸåŽçš„æ•°æ®æµï¼Œå¯»æ‰¾ç¡®è®¤å‘ç”Ÿçš„æ—¶æœº
+                # å®žé™… CZSC ä¼šæœ‰ç‰¹å®šçš„ä¿¡å·å­—å…¸ï¼Œè¿™é‡Œæˆ‘ä»¬åšä¸€ä¸ªéžæœªæ¥çš„åç§»
                 confirm_idx = -1
-                for j, bar in enumerate(ci.bars):
-                    if bar.dt > bi.end_dt:
-                        # 找到第一个后续 Bar (实际上需要 4-5 根确认)
-                        # 为了严谨，我们取笔结束时间 + 5根 Bar 的时间作为执行点
+                for j, bar in enumerate(source_bars):
+                    bar_dt = get_dt_from_bar(bar)
+                    if bar_dt is None:
+                        continue
+                    if bar_dt > bi_end_dt:
+                        # æ‰¾åˆ°ç¬¬ä¸€ä¸ªåŽç»­ Bar (å®žé™…ä¸Šéœ€è¦ 4-5 æ ¹ç¡®è®¤)
+                        # ä¸ºäº†ä¸¥è°¨ï¼Œæˆ‘ä»¬å–ç¬”ç»“æŸæ—¶é—´ + 5æ ¹ Bar çš„æ—¶é—´ä½œä¸ºæ‰§è¡Œç‚¹
                         conf_idx = j + 4
-                        if conf_idx < len(ci.bars):
-                            confirm_dt = ci.bars[conf_idx].dt
-                            is_buy = str(bi.direction).lower() in ['down', '-1', 'd']
+                        if conf_idx < len(source_bars):
+                            confirm_dt = get_dt_from_bar(source_bars[conf_idx])
+                            if confirm_dt is None:
+                                continue
+                            is_buy = normalize_direction(getattr(bi, "direction", "")) == "down"
                             markers.append({
-                                "time": confirm_dt.strftime('%Y-%m-%d %H:%M:%S'),
-                                "peak_time": bi.end_dt.strftime('%Y-%m-%d %H:%M:%S'), # 记录极值点供参考
+                                "time": to_dt_str(confirm_dt),
+                                "peak_time": to_dt_str(bi_end_dt), # è®°å½•æžå€¼ç‚¹ä¾›å‚è€ƒ
                                 "position": "belowBar" if is_buy else "aboveBar",
                                 "color": "#00FFD1" if is_buy else "#FF5E5E",
                                 "shape": "arrowUp" if is_buy else "arrowDown",
-                                "text": "B ★" if is_buy else "S ★",
+                                "text": "B *" if is_buy else "S *",
                                 "type": "Buy1_Confirmed" if is_buy else "Sell1_Confirmed",
                                 "size": 2
                             })
@@ -293,11 +385,20 @@ def main():
         
     print(f"Found {len(csv_files)} data files to analyze in {DATA_DIR}.")
     
-    # Filter out files that might have been created by accident or are not ticker data
-    valid_files = [f for f in csv_files if "_" in os.path.basename(f)]
+    # Filter out files that might have been created by accident or are not target timeframe data
+    target_intervals = {"1m", "1d", "1wk", "1mo"}
+    valid_files = []
+    for f in csv_files:
+        name = os.path.basename(f).replace(".csv", "")
+        parts = name.split("_")
+        if len(parts) < 2:
+            continue
+        if parts[1] in target_intervals:
+            valid_files.append(f)
     
     for f in valid_files:
         analyze_ticker(f)
 
 if __name__ == "__main__":
     main()
+
