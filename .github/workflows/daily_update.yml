@@ -80,7 +80,7 @@ jobs:
           
           # 4. 调试：列出数据目录内容确认
           echo "Contents of data/ to be committed:"
-          ls -R data/ | head -n 100
+          ls -R data/
           
           # 5. 强制添加并提交
           if [ -n "$(find data -type f -print -quit 2>/dev/null || true)" ]; then
