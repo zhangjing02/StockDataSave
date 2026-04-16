@@ -21,6 +21,12 @@ from datetime import datetime
 DATA_DIR = "data"
 SIGNALS_DIR = os.path.join(DATA_DIR, "analysis")
 os.makedirs(SIGNALS_DIR, exist_ok=True)
+MIN_BARS_RECOMMENDED = {
+    "1m": 120,
+    "1d": 50,
+    "1wk": 20,
+    "1mo": 8,
+}
 
 
 def resolve_freq(interval):
@@ -144,6 +150,38 @@ def extract_bi_bounds(bi):
                 end_dt = get_dt_from_bar(bars[-1])
     return start_dt, end_dt
 
+
+def build_signal_result(
+    symbol,
+    interval,
+    last_update="",
+    fractals=None,
+    bi=None,
+    segments=None,
+    zhongshu=None,
+    markers=None,
+    note=""
+):
+    payload = {
+        "symbol": symbol,
+        "interval": interval,
+        "last_update": last_update,
+        "generated_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "fractals": fractals or [],
+        "bi": bi or [],
+        "segments": segments or [],
+        "zhongshu": zhongshu or [],
+        "markers": markers or []
+    }
+    if note:
+        payload["note"] = note
+    return payload
+
+
+def write_signal_file(output_file, payload):
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
 def analyze_ticker(csv_path):
     filename = os.path.basename(csv_path)
     # Expected format: AAPL_1d.csv
@@ -156,11 +194,18 @@ def analyze_ticker(csv_path):
         return
 
     print(f"Analyzing {symbol} ({interval})...")
+    output_file = os.path.join(SIGNALS_DIR, f"{symbol}_{interval}_signals.json")
     
     try:
         # Load CSV
         df = pd.read_csv(csv_path)
-        if df.empty or len(df) < 50: return # Need some data to analyze
+        if df.empty:
+            print(f"  Skip {filename}: csv is empty.")
+            write_signal_file(
+                output_file,
+                build_signal_result(symbol, interval, note="empty_csv")
+            )
+            return
 
         # Find columns (case-insensitive)
         cols = list(df.columns)
@@ -178,6 +223,10 @@ def analyze_ticker(csv_path):
                     break
         if date_col is None:
             print(f"  Skip {filename}: date column not found. columns={cols[:8]}")
+            write_signal_file(
+                output_file,
+                build_signal_result(symbol, interval, note="date_column_missing")
+            )
             return
 
         open_col = col_map.get("open")
@@ -187,6 +236,10 @@ def analyze_ticker(csv_path):
         volume_col = col_map.get("volume")
         if not all([open_col, high_col, low_col, close_col]):
             print(f"  Skip {filename}: OHLC columns missing. columns={cols[:8]}")
+            write_signal_file(
+                output_file,
+                build_signal_result(symbol, interval, note="ohlc_columns_missing")
+            )
             return
         
         # Prepare bars for CZSC
@@ -219,11 +272,36 @@ def analyze_ticker(csv_path):
         if not bars:
             if row_errors:
                 print(f"  Skip {filename}: all rows failed to convert to RawBar ({row_errors} errors).")
+            write_signal_file(
+                output_file,
+                build_signal_result(symbol, interval, note="no_valid_raw_bars")
+            )
             return
         bars = sorted(bars, key=lambda x: x.dt)
+        last_update = bars[-1].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+        min_bars = MIN_BARS_RECOMMENDED.get(interval, 20)
+        if len(bars) < min_bars:
+            print(
+                f"  Warning {filename}: bars={len(bars)} below recommended {min_bars}, "
+                "analysis quality may be limited."
+            )
 
         # Perform Analysis
-        ci = CzscIter(bars)
+        try:
+            ci = CzscIter(bars)
+        except Exception as e:
+            print(f"  Analyze fallback for {filename}: {e}")
+            write_signal_file(
+                output_file,
+                build_signal_result(
+                    symbol,
+                    interval,
+                    last_update=last_update,
+                    note=f"analysis_error: {e}"
+                )
+            )
+            return
         
         # Extract Fractals (åˆ†åž‹)
         fx_list = []
@@ -355,24 +433,27 @@ def analyze_ticker(csv_path):
         num_fx = len(fx_list)
         num_bi = len(bi_list)
         
-        result = {
-            "symbol": symbol,
-            "interval": interval,
-            "last_update": bars[-1].dt.strftime('%Y-%m-%d %H:%M:%S'),
-            "generated_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            "fractals": fx_list,
-            "bi": bi_list,
-            "segments": xd_list,
-            "zhongshu": zs_list,
-            "markers": markers
-        }
-
-        output_file = os.path.join(SIGNALS_DIR, f"{symbol}_{interval}_signals.json")
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=2)
+        result = build_signal_result(
+            symbol=symbol,
+            interval=interval,
+            last_update=last_update,
+            fractals=fx_list,
+            bi=bi_list,
+            segments=xd_list,
+            zhongshu=zs_list,
+            markers=markers
+        )
+        write_signal_file(output_file, result)
             
     except Exception as e:
         print(f"  Error analyzing {filename}: {e}")
+        try:
+            write_signal_file(
+                output_file,
+                build_signal_result(symbol, interval, note=f"unexpected_error: {e}")
+            )
+        except Exception:
+            pass
 
 
 def main():

@@ -50,6 +50,9 @@ jobs:
       - name: Fetch news
         run: python news_fetcher.py
 
+      - name: Validate generated data
+        run: python validate_latest_pull.py
+
       - name: Commit and push to data-sync branch
         run: |
           set -euo pipefail
