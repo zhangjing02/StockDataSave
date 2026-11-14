@@ -1,31 +1,31 @@
 {
   "AMZN": {
-    "floatShares": 9754500547,
-    "totalShares": 10734920870,
+    "floatShares": 9837576968,
+    "totalShares": 10813138306,
     "shortName": "Amazon.com, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "ARKK": {
     "floatShares": null,
     "totalShares": null,
     "shortName": "ARK Innovation ETF",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "SMH": {
     "floatShares": null,
-    "totalShares": 11670900,
+    "totalShares": null,
     "shortName": "VanEck Semiconductor ETF",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "UVXY": {
     "floatShares": null,
     "totalShares": null,
     "shortName": "ProShares Ultra VIX Short Term ",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "AVAX-USD": {
     "floatShares": null,
@@ -40,85 +40,85 @@
     "type": "crypto"
   },
   "XPEV": {
-    "floatShares": 1415892573,
-    "totalShares": 781096561,
+    "floatShares": 709812856,
+    "totalShares": 783622601,
     "shortName": "XPeng Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "COIN": {
-    "floatShares": 219964053,
-    "totalShares": 223041278,
+    "floatShares": 220735909,
+    "totalShares": 223729527,
     "shortName": "Coinbase Global, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "ARM": {
-    "floatShares": 136551960,
-    "totalShares": 1061998569,
+    "floatShares": 144524900,
+    "totalShares": 1070000000,
     "shortName": "Arm Holdings plc",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "TSM": {
-    "floatShares": 24181300654,
-    "totalShares": 5186504904,
+    "floatShares": 37836240192,
+    "totalShares": 5186472994,
     "shortName": "Taiwan Semiconductor Manufactur",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "BA": {
-    "floatShares": 753501271,
-    "totalShares": 785844140,
+    "floatShares": 791229567,
+    "totalShares": 792449940,
     "shortName": "Boeing Company (The)",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "IWM": {
     "floatShares": null,
     "totalShares": 281049984,
-    "shortName": "iShares Russell 2000 ETF",
+    "shortName": "iShares Russell 2000 Index Fund",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "DAL": {
-    "floatShares": 644997924,
-    "totalShares": 653130708,
+    "floatShares": 650151588,
+    "totalShares": 657912380,
     "shortName": "Delta Air Lines, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "META": {
-    "floatShares": 2183917005,
-    "totalShares": 2187177748,
+    "floatShares": 2211148684,
+    "totalShares": 2214455318,
     "shortName": "Meta Platforms, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "QCOM": {
-    "floatShares": 1064705950,
-    "totalShares": 1067000000,
+    "floatShares": 1068148900,
+    "totalShares": 1070000000,
     "shortName": "QUALCOMM Incorporated",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "ETH-USD": {
     "floatShares": null,
     "type": "crypto"
   },
   "MSFT": {
-    "floatShares": 7414861914,
-    "totalShares": 7425629076,
+    "floatShares": 7415278046,
+    "totalShares": 7426194552,
     "shortName": "Microsoft Corporation",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "AMD": {
-    "floatShares": 1621476192,
-    "totalShares": 1630338779,
+    "floatShares": 1631148775,
+    "totalShares": 1640087251,
     "shortName": "Advanced Micro Devices, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "BTC-USD": {
     "floatShares": null,
@@ -133,211 +133,211 @@
     "type": "crypto"
   },
   "PDD": {
-    "floatShares": 3061684568,
-    "totalShares": 1419646462,
+    "floatShares": 753849190,
+    "totalShares": 1423396462,
     "shortName": "PDD Holdings Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "ADA-USD": {
     "floatShares": null,
     "type": "crypto"
   },
   "NVDA": {
-    "floatShares": 23322168000,
-    "totalShares": 24300000000,
+    "floatShares": 23133590000,
+    "totalShares": 24147000000,
     "shortName": "NVIDIA Corporation",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "SOXS": {
     "floatShares": null,
     "totalShares": null,
     "shortName": "Direxion Daily Semiconductor Be",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "DIS": {
-    "floatShares": 1768773995,
-    "totalShares": 1771519851,
+    "floatShares": 1723889669,
+    "totalShares": 1726686902,
     "shortName": "Walt Disney Company (The)",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "AAPL": {
-    "floatShares": 14656182062,
-    "totalShares": 14681140000,
+    "floatShares": 14507041325,
+    "totalShares": 14532182000,
     "shortName": "Apple Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "SMCI": {
-    "floatShares": 499581143,
-    "totalShares": 600481952,
+    "floatShares": 559987279,
+    "totalShares": 659227367,
     "shortName": "Super Micro Computer, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "ADBE": {
-    "floatShares": 402890392,
-    "totalShares": 404200000,
+    "floatShares": 388040184,
+    "totalShares": 389200000,
     "shortName": "Adobe Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "RIVN": {
-    "floatShares": 821076074,
-    "totalShares": 1237077289,
+    "floatShares": 957079980,
+    "totalShares": 1455696138,
     "shortName": "Rivian Automotive, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "BILI": {
-    "floatShares": 290583625,
-    "totalShares": 327857007,
+    "floatShares": 292271871,
+    "totalShares": 320048106,
     "shortName": "Bilibili Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "PLTR": {
-    "floatShares": 2209310438,
-    "totalShares": 2291470751,
+    "floatShares": 2115249642,
+    "totalShares": 2306705341,
     "shortName": "Palantir Technologies Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "NFLX": {
-    "floatShares": 4192944788,
-    "totalShares": 4237323340,
+    "floatShares": 4077047799,
+    "totalShares": 4106325903,
     "shortName": "Netflix, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "KWEB": {
     "floatShares": null,
     "totalShares": null,
     "shortName": "KraneShares CSI China Internet ",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "BABA": {
-    "floatShares": 17577582880,
-    "totalShares": 2387412815,
+    "floatShares": 2219305076,
+    "totalShares": 2487744939,
     "shortName": "Alibaba Group Holding Limited",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "INTC": {
-    "floatShares": 4986009000,
-    "totalShares": 5021010228,
+    "floatShares": 4872419950,
+    "totalShares": 5315000000,
     "shortName": "Intel Corporation",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "SPY": {
     "floatShares": null,
     "totalShares": 917782016,
     "shortName": "State Street SPDR S&P 500 ETF T",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "AVGO": {
-    "floatShares": 405883050,
-    "totalShares": 4734668184,
+    "floatShares": 4715677998,
+    "totalShares": 4773629865,
     "shortName": "Broadcom Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "DOT-USD": {
     "floatShares": null,
     "type": "crypto"
   },
   "FCX": {
-    "floatShares": 1429282625,
-    "totalShares": 1437201606,
+    "floatShares": 1425264565,
+    "totalShares": 1434936034,
     "shortName": "Freeport-McMoRan, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "TSLA": {
-    "floatShares": 2812710442,
-    "totalShares": 3752431984,
+    "floatShares": 2822308701,
+    "totalShares": 3952757946,
     "shortName": "Tesla, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "RKLB": {
-    "floatShares": 524160710,
-    "totalShares": 569407668,
+    "floatShares": 590503461,
+    "totalShares": 632020915,
     "shortName": "Rocket Lab Corporation",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "GOOG": {
-    "floatShares": 10833589320,
-    "totalShares": 5438000000,
+    "floatShares": 10951741080,
+    "totalShares": 5579000000,
     "shortName": "Alphabet Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "QQQ": {
     "floatShares": null,
     "totalShares": 393100000,
     "shortName": "Invesco QQQ Trust, Series 1",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "XRP-USD": {
     "floatShares": null,
     "type": "crypto"
   },
   "OXY": {
-    "floatShares": 982410353,
-    "totalShares": 991695181,
+    "floatShares": 995725184,
+    "totalShares": 999894745,
     "shortName": "Occidental Petroleum Corporatio",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "NVO": {
-    "floatShares": 3187325680,
-    "totalShares": 3364890209,
+    "floatShares": 3155652643,
+    "totalShares": 3333483124,
     "shortName": "Novo Nordisk A/S",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "ASML": {
-    "floatShares": 385294331,
-    "totalShares": 385417665,
+    "floatShares": 21275884167,
+    "totalShares": 385417742,
     "shortName": "ASML Holding N.V. - New York Re",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "MU": {
-    "floatShares": 1123505048,
-    "totalShares": 1127734051,
+    "floatShares": 1127632944,
+    "totalShares": 1131423212,
     "shortName": "Micron Technology, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "IBKR": {
-    "floatShares": 433056630,
-    "totalShares": 445616477,
+    "floatShares": 439216168,
+    "totalShares": 453103399,
     "shortName": "Interactive Brokers Group, Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "NIO": {
-    "floatShares": 1876399200,
-    "totalShares": 2370675188,
+    "floatShares": 1898771577,
+    "totalShares": 2357167022,
     "shortName": "NIO Inc.",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   },
   "ORCL": {
-    "floatShares": 1708975294,
-    "totalShares": 2876046000,
+    "floatShares": 1894098468,
+    "totalShares": 3117708046,
     "shortName": "Oracle Corporation",
     "type": "stock",
-    "last_update": "2026-04-01"
+    "last_update": "2026-11-14"
   }
 }
